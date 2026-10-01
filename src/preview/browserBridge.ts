@@ -34,13 +34,24 @@ export function createBrowserBridge(): HiggsfieldApi {
       }
     },
     async listWorkspaces() {
-      return load().workspaces
+      const memory = load()
+      if (memory.workspaces.length > 0) return memory.workspaces
+      const workspace: Workspace = {
+        id: crypto.randomUUID(),
+        name: 'Higgsfield',
+        directory: '/tmp/higgsfield-workspace',
+        createdAt: new Date().toISOString(),
+      }
+      memory.workspaces = [workspace]
+      memory.jobs[workspace.id] = []
+      save(memory)
+      return memory.workspaces
     },
     async createWorkspace(input) {
       const name = input.name.trim()
       const directory = input.directory.trim()
       if (!name) throw new Error('Name the workspace.')
-      if (!directory) throw new Error('Type a folder path. Browsing folders needs the app window.')
+      if (!directory) throw new Error('Choose a folder.')
       const workspace: Workspace = {
         id: crypto.randomUUID(),
         name,

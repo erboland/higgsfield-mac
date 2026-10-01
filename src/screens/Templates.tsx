@@ -3,7 +3,8 @@ import { LocalRunPanel, useLocalGeneration } from '@/components/LocalRunPanel'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { skills } from '@/shared/catalog.ts'
-import { localMediaKind } from '@/shared/localRun.ts'
+import { demoAsset } from '@/shared/demoAsset.ts'
+import { LOCAL_MODEL_NAME } from '@/shared/localRun.ts'
 import {
   templateCategories,
   templates,
@@ -61,8 +62,7 @@ export function Templates({ onStart }: { onStart: (entry: TemplateEntry) => void
 
       <div className="min-w-0 flex-1 px-5 py-6">
         <p className="max-w-xl text-sm text-muted">
-          Starting points for the eight skills. Start opens Create for your account. Generate locally writes an image
-          or video from the brief into the workspace.
+          Starting points rendered with {LOCAL_MODEL_NAME}. Generate writes a new image or video into the output folder.
         </p>
         <LocalRunPanel
           workspaces={local.workspaces}
@@ -79,21 +79,23 @@ export function Templates({ onStart }: { onStart: (entry: TemplateEntry) => void
           <ul className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {visible.map((entry) => {
               const skill = skills.find((item) => item.id === entry.skillId)
+              const prompt = (entry.patch.prompt || entry.demoPrompt || '').trim()
+              const kind = entry.category === 'video' ? 'video' : prompt ? 'image' : null
               return (
                 <li key={entry.id}>
                   <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-panel">
                     {entry.category === 'video' ? (
                       <video
                         className="h-40 w-full bg-black object-cover"
-                        poster={`/demos/${entry.id}.png`}
-                        src={`/demos/${entry.id}.mp4`}
+                        poster={demoAsset(`${entry.id}.png`)}
+                        src={demoAsset(`${entry.id}.mp4`)}
                         muted
                         loop
                         playsInline
                         autoPlay
                       />
                     ) : (
-                      <img className="h-40 w-full bg-black object-cover" src={`/demos/${entry.id}.png`} alt="" />
+                      <img className="h-40 w-full bg-black object-cover" src={demoAsset(`${entry.id}.png`)} alt="" />
                     )}
                     <div className="flex flex-1 flex-col p-4">
                       <p className="text-[11px] tracking-[0.16em] text-accent uppercase">{skill?.title}</p>
@@ -101,32 +103,13 @@ export function Templates({ onStart }: { onStart: (entry: TemplateEntry) => void
                       <p className="mt-2 flex-1 text-sm leading-relaxed text-white/70">{entry.blurb}</p>
                       <div className="mt-4 flex flex-wrap items-center gap-2">
                         <Button variant="outline" size="sm" onClick={() => onStart(entry)}>
-                          Start
+                          Open
                         </Button>
-                        {localMediaKind({
-                          skillId: entry.skillId,
-                          category: entry.category,
-                          prompt: entry.patch.prompt,
-                        }) ? (
-                          <Button
-                            size="sm"
-                            disabled={local.busy}
-                            onClick={() =>
-                              void local.generate(
-                                entry.patch.prompt ?? '',
-                                localMediaKind({
-                                  skillId: entry.skillId,
-                                  category: entry.category,
-                                  prompt: entry.patch.prompt,
-                                })!,
-                              )
-                            }
-                          >
-                            Generate locally
+                        {kind ? (
+                          <Button size="sm" disabled={local.busy} onClick={() => void local.generate(prompt, kind)}>
+                            Generate
                           </Button>
-                        ) : (
-                          <p className="text-xs text-muted">This starting point stays on your account.</p>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   </article>
