@@ -1,0 +1,28 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  appId: "local.higgsfield.studio",
+  asar: true,
+  productName: "Higgsfield",
+  directories: {
+    output: "release/${version}",
+  },
+  files: ["dist", "dist-electron"],
+  extraResources: [
+    { from: "runner/local_generate.py", to: "runner/local_generate.py" },
+    { from: "runner/requirements.txt", to: "runner/requirements.txt" },
+  ],
+  mac: {
+    category: "public.app-category.developer-tools",
+    identity: null,
+    target: ["dmg", "zip"],
+    artifactName: "Higgsfield-${version}-${arch}.${ext}",
+  },
+  dmg: {
+    title: "Higgsfield",
+  },
+  linux: {
+    target: ["AppImage"],
+    category: "Development",
+    artifactName: "Higgsfield-${version}-${arch}.${ext}",
+  },
+}
