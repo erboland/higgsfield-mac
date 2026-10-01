@@ -130,7 +130,7 @@ export function LocalRunPanel({
         </form>
       )}
       {busy && <p className="mt-4 text-sm">Generating with {LOCAL_MODEL_NAME}…</p>}
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {error && <p className="mt-4 text-sm text-danger">{error}</p>}
       {result && (
         <figure data-local-run className="mt-4 overflow-hidden rounded-2xl border border-line bg-black">
           {result.kind === 'image' ? (
