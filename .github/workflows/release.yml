@@ -22,16 +22,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-
-      - name: Assemble the lockfile
-        run: |
-          if [ ! -f package-lock.json ]; then
-            cat package-lock.part.* > package-lock.json
-          fi
 
       - name: Install
-        run: npm ci
+        run: npm install
 
       - name: Build an unsigned disk image
         run: npm run dist:mac
