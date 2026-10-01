@@ -12,7 +12,7 @@
     "dev:web": "VITE_WEB_PREVIEW=1 vite --host 127.0.0.1 --port 43127",
     "prebuild": "node scripts/unpack-demos.mjs",
     "build": "tsc --noEmit && vite build",
-    "dist:mac": "npm run build && electron-builder --mac --publish never",
+    "dist:mac": "npm run build && electron-builder --mac --publish never && node scripts/make-dmg.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 43127",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "typecheck": "tsc --noEmit"

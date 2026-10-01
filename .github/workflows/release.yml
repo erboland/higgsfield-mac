@@ -32,10 +32,22 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Attach the disk image to the release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v0.1.0' }}
-          files: release/**/*.dmg
-          generate_release_notes: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="v0.1.0"
+          fi
+          shopt -s nullglob
+          files=(release/*/*.dmg)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No disk image was produced."
+            exit 1
+          fi
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "$TAG" --notes "Unsigned macOS disk image. No Apple certificate is configured."
+          fi
+          gh release upload "$TAG" "${files[@]}" --clobber

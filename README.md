@@ -65,7 +65,7 @@ On a Mac:
 npm run dist:mac
 ```
 
-The dmg and zip land in `release/<version>/`. The build does not sign or notarize (`identity` is null, and `--publish never`). GitHub Actions on `macos-latest` runs the same command when a `v*` tag is pushed and attaches the dmg to the release.
+`npm run dist:mac` writes `release/<version>/Higgsfield-<version>-<arch>.dmg`. The app bundle is unsigned (`identity` is null). The disk image itself is created with `hdiutil` and checked with `hdiutil verify` before it is published. GitHub Actions on `macos-latest` runs that command for a `v*` tag and replaces the `.dmg` on the release.
 
 ## What you can do
 

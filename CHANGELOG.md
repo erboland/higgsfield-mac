@@ -6,4 +6,4 @@
 - Account jobs go through the official `higgsfield` CLI after confirmation.
 - Local image and video run on BK-SDM Tiny and save into the workspace.
 - Template cards include a demo image. Video templates also include a short MP4.
-- Unsigned macOS disk image from GitHub Actions.
+- Unsigned macOS disk image from GitHub Actions, created with `hdiutil` and checked with `hdiutil verify`.

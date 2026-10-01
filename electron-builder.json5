@@ -14,11 +14,7 @@
   mac: {
     category: "public.app-category.developer-tools",
     identity: null,
-    target: ["dmg", "zip"],
-    artifactName: "Higgsfield-${version}-${arch}.${ext}",
-  },
-  dmg: {
-    title: "Higgsfield",
+    target: ["dir"],
   },
   linux: {
     target: ["AppImage"],
