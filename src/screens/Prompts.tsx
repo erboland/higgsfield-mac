@@ -2,8 +2,7 @@ import { useMemo, useState } from 'react'
 import { LocalRunPanel, useLocalGeneration } from '@/components/LocalRunPanel'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { models } from '@/shared/catalog.ts'
-import { localMediaKind } from '@/shared/localRun.ts'
+import { LOCAL_MODEL_NAME, localMediaKind } from '@/shared/localRun.ts'
 import { promptKinds, prompts, type PromptEntry, type PromptKind } from '@/shared/starters.ts'
 
 const kindLabel: Record<PromptKind, string> = {
@@ -39,7 +38,7 @@ export function Prompts({ onUse }: { onUse: (entry: PromptEntry) => void }) {
           <p className="text-[11px] tracking-[0.22em] text-accent uppercase">Library</p>
           <h1 className="mt-1 font-serif text-4xl tracking-tight">Prompts</h1>
           <p className="mt-2 max-w-xl text-sm text-muted">
-            Starter briefs for the skills. Use sends one to Create for your account. Generate locally runs the prompt on the open model in the panel.
+            Starter briefs. Generate runs the prompt on {LOCAL_MODEL_NAME} and saves the file in the output folder.
           </p>
         </div>
         <Input
@@ -76,19 +75,18 @@ export function Prompts({ onUse }: { onUse: (entry: PromptEntry) => void }) {
       ) : (
         <ul className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((entry) => {
-            const model = models.find((item) => item.id === entry.modelId)
             return (
               <li key={entry.id}>
                 <article className="flex h-full flex-col rounded-2xl border border-line bg-panel p-4">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-[11px] tracking-[0.18em] text-accent uppercase">{kindLabel[entry.kind]}</span>
-                    <span className="truncate text-xs text-muted">{model?.name ?? 'Skill brief'}</span>
+                    <span className="truncate text-xs text-muted">{LOCAL_MODEL_NAME}</span>
                   </div>
                   <h2 className="mt-3 font-serif text-xl tracking-tight">{entry.title}</h2>
                   <p className="mt-2 flex-1 text-sm leading-relaxed text-white/70">{entry.prompt}</p>
                   <div className="mt-4 flex flex-wrap items-center gap-2">
                     <Button variant="outline" size="sm" onClick={() => onUse(entry)}>
-                      Use
+                      Open
                     </Button>
                     {localMediaKind({ kind: entry.kind, skillId: entry.skillId, prompt: entry.prompt }) ? (
                       <Button
@@ -101,10 +99,10 @@ export function Prompts({ onUse }: { onUse: (entry: PromptEntry) => void }) {
                           )
                         }
                       >
-                        Generate locally
+                        Generate
                       </Button>
                     ) : (
-                      <p className="text-xs text-muted">No local image or video for this brief. Use sends it to your account.</p>
+                      <p className="text-xs text-muted">This brief is not an image or video.</p>
                     )}
                   </div>
                 </article>
