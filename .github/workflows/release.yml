@@ -24,6 +24,12 @@ jobs:
           node-version: "22"
           cache: npm
 
+      - name: Assemble the lockfile
+        run: |
+          if [ ! -f package-lock.json ]; then
+            cat package-lock.part.* > package-lock.json
+          fi
+
       - name: Install
         run: npm ci
 

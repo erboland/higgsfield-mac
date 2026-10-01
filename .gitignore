@@ -1,0 +1,12 @@
+node_modules
+agent-tools
+dist
+dist-electron
+release
+*.local
+.DS_Store
+*.log
+.vite
+runner/.venv/
+runner/.cache/
+public/demos/*.b64
