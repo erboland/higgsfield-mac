@@ -1,6 +1,7 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from 'electron'
+import fs from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { buildCommand } from '../src/shared/command.ts'
 import type { JobDraft } from '../src/shared/types.ts'
 import { generateLocal } from '../runner/generate.ts'
@@ -13,6 +14,22 @@ process.env.APP_ROOT = path.join(__dirname, '..')
 
 export const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'media',
+    privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true },
+  },
+])
+
+function demoFile(name: string): string | null {
+  if (!/^[a-z0-9-]+\.(png|mp4)$/.test(name)) return null
+  const unpacked = path.join(process.resourcesPath, 'app.asar.unpacked', 'dist', 'demos', name)
+  const packed = path.join(RENDERER_DIST, 'demos', name)
+  if (fs.existsSync(unpacked)) return unpacked
+  if (fs.existsSync(packed)) return packed
+  return null
+}
 
 let win: BrowserWindow | null = null
 
@@ -53,6 +70,12 @@ function isDraft(value: unknown): value is JobDraft {
 }
 
 app.whenReady().then(() => {
+  protocol.handle('media', (request) => {
+    const name = path.basename(new URL(request.url).pathname)
+    const file = demoFile(name)
+    if (!file) return new Response('Not found', { status: 404 })
+    return net.fetch(pathToFileURL(file).toString())
+  })
   ipcMain.handle('app:info', () => ({ platform: process.platform, bridge: 'desktop' as const }))
   ipcMain.handle('toolchain:get', () => inspectToolchain())
   ipcMain.handle('workspaces:list', () => listWorkspaces())

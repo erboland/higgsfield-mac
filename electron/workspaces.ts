@@ -1,5 +1,6 @@
 import { app } from 'electron'
 import fs from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import type { SavedJob, Workspace } from '../src/shared/types.ts'
 
@@ -25,9 +26,18 @@ async function writeStore(store: Store): Promise<void> {
   await fs.writeFile(storePath(), JSON.stringify(store, null, 2))
 }
 
+export function defaultOutputDir(): string {
+  const pictures = app.isReady() ? app.getPath('pictures') : path.join(os.homedir(), 'Pictures')
+  return path.join(pictures, 'Higgsfield')
+}
+
 export async function listWorkspaces(): Promise<Workspace[]> {
   const store = await readStore()
-  return store.workspaces
+  if (store.workspaces.length > 0) return store.workspaces
+  const directory = defaultOutputDir()
+  await fs.mkdir(directory, { recursive: true })
+  const created = await createWorkspace({ name: 'Higgsfield', directory })
+  return [created]
 }
 
 export async function createWorkspace(input: { name: string; directory: string }): Promise<Workspace> {

@@ -18,10 +18,9 @@ export function Licenses() {
       <section className="space-y-2">
         <h2 className="font-serif text-2xl">What this build leaves out</h2>
         <p>
-          Hosted model weights are not in the public repositories. Account jobs run on the Higgsfield service through
-          the CLI and spend credits. A local image or video is a separate action: it runs the open model BK-SDM Tiny
-          on this machine and saves a file in the workspace. That run does not use Soul, Kling, Veo, Seedance, or the
-          other hosted weights.
+          Hosted model weights are not in the public repositories. This app generates with the open model BK-SDM Tiny
+          on this machine and saves the file in the output folder. That run does not use Soul, Kling, Veo, Seedance, or
+          the other hosted weights.
         </p>
         <p>
           The upstream desktop shell is dual-licensed AGPL-3.0-or-later or a commercial license from Comfy Org,

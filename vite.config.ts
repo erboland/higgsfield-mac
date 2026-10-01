@@ -54,6 +54,7 @@ function localGenerateApi(): Plugin {
 const webPreview = process.env.VITE_WEB_PREVIEW === '1'
 
 export default defineConfig({
+  base: './',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
