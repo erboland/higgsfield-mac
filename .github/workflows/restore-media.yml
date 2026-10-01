@@ -1,0 +1,38 @@
+name: Restore media
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  images:
+    if: contains(github.event.head_commit.message, 'Release v') || contains(github.event.head_commit.message, 'Pack media')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Decode screenshots and template demos
+        run: node scripts/restore-media.mjs
+
+      - name: Commit the image files
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/demos docs/screenshots
+          if git diff --cached --quiet; then
+            echo "Images were already in the tree."
+            exit 0
+          fi
+          git commit -m "Add README screenshots and template demo images."
+          git push

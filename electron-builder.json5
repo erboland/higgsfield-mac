@@ -7,6 +7,7 @@
     output: "release/${version}",
   },
   files: ["dist", "dist-electron"],
+  asarUnpack: ["dist/demos/**"],
   extraResources: [
     { from: "runner/local_generate.py", to: "runner/local_generate.py" },
     { from: "runner/requirements.txt", to: "runner/requirements.txt" },

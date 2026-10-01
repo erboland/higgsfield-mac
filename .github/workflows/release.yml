@@ -39,7 +39,7 @@ jobs:
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             TAG="${GITHUB_REF_NAME}"
           else
-            TAG="v0.1.0"
+            TAG="v$(node -p "require('./package.json').version")"
           fi
           shopt -s nullglob
           files=(release/*/*.dmg)
