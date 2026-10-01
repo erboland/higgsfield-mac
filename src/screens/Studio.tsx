@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { getApi } from '@/lib/api'
@@ -14,25 +13,20 @@ import {
   websiteTemplates,
 } from '@/shared/catalog.ts'
 import { buildCommand } from '@/shared/command.ts'
-import type { JobDraft, SavedJob, ToolchainStatus, Workspace } from '@/shared/types.ts'
+import { LOCAL_MODEL_ID, LOCAL_MODEL_NAME } from '@/shared/localRun.ts'
+import type { JobDraft, LocalGeneration, SavedJob, Workspace } from '@/shared/types.ts'
 
 const selectClass =
   'h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm text-ink outline-none focus:border-accent'
 
 export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: JobDraft) => void }) {
   const api = useMemo(() => getApi(), [])
-  const [toolchain, setToolchain] = useState<ToolchainStatus | null>(null)
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [workspaceId, setWorkspaceId] = useState<string>('')
   const [jobs, setJobs] = useState<SavedJob[]>([])
-  const [log, setLog] = useState('')
+  const [localResult, setLocalResult] = useState<LocalGeneration | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const [confirmOpen, setConfirmOpen] = useState(false)
-  const [workspaceOpen, setWorkspaceOpen] = useState(false)
-  const [workspaceName, setWorkspaceName] = useState('')
-  const [workspaceDir, setWorkspaceDir] = useState('')
-  const [copied, setCopied] = useState(false)
 
   const built = buildCommand(draft)
   const skill = skills.find((item) => item.id === draft.skillId)
@@ -43,10 +37,6 @@ export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: J
     draft.skillId === 'higgsfield-youtube-thumbnail'
   const model = models.find((item) => item.id === draft.modelId)
 
-  async function refreshToolchain() {
-    setToolchain(await api.getToolchain())
-  }
-
   async function refreshWorkspaces(selectId?: string) {
     const next = await api.listWorkspaces()
     setWorkspaces(next)
@@ -54,17 +44,7 @@ export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: J
   }
 
   useEffect(() => {
-    void refreshToolchain()
     void refreshWorkspaces()
-    const stop = api.onJobEvent((event) => {
-      if (event.type === 'log') setLog((current) => `${current}${event.text}`.slice(-20000))
-      if (event.type === 'exit') {
-        setBusy(false)
-        if (event.error) setLog((current) => `${current}${event.error}\n`)
-        else setLog((current) => `${current}\nFinished with code ${event.code ?? 'unknown'}.\n`)
-      }
-    })
-    return stop
     // The bridge identity is stable for the lifetime of the page.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -84,16 +64,16 @@ export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: J
     setError('')
   }
 
-  async function onCreateWorkspace() {
+  async function onChooseFolder() {
     setError('')
+    const directory = await api.pickDirectory()
+    if (!directory) return
+    const name = directory.split(/[/\\]/).filter(Boolean).at(-1) || 'Output'
     try {
-      const created = await api.createWorkspace({ name: workspaceName, directory: workspaceDir })
-      setWorkspaceOpen(false)
-      setWorkspaceName('')
-      setWorkspaceDir('')
+      const created = await api.createWorkspace({ name, directory })
       await refreshWorkspaces(created.id)
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Could not create the workspace.')
+      setError(reason instanceof Error ? reason.message : 'Could not use that folder.')
     }
   }
 
@@ -111,72 +91,48 @@ export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: J
     }
   }
 
-  async function onRun() {
+  async function onGenerate() {
     if (!workspaceId) {
-      setError('Create a workspace before running.')
+      setError('Choose an output folder first.')
       return
     }
-    setConfirmOpen(false)
+    const prompt = draft.prompt.trim()
+    if (!prompt) {
+      setError('Write a prompt first.')
+      return
+    }
+    const kind = model?.modality === 'video' ? 'video' : 'image'
     setBusy(true)
-    setLog('')
     setError('')
     try {
-      await api.runJob(workspaceId, draft)
+      setLocalResult(await api.generateLocal({ workspaceId, prompt, kind }))
     } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Local generation failed.')
+    } finally {
       setBusy(false)
-      setError(reason instanceof Error ? reason.message : 'Could not start the job.')
     }
-  }
-
-  async function copyCommand() {
-    if ('error' in built) return
-    await navigator.clipboard.writeText(built.display)
-    setCopied(true)
-    window.setTimeout(() => setCopied(false), 1200)
   }
 
   return (
     <div className="mx-auto grid max-w-6xl gap-6 px-5 py-6 lg:grid-cols-[280px_1fr]">
       <section className="space-y-4">
         <article className="rounded-2xl border border-line bg-panel p-4">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="font-serif text-xl">CLI</h2>
-            <Button variant="ghost" size="sm" onClick={() => void refreshToolchain()}>
-              Check
-            </Button>
-          </div>
-          {toolchain == null ? (
-            <p className="mt-3 text-sm text-muted">Looking for higgsfield…</p>
-          ) : toolchain.installed ? (
-            <div className="mt-3 space-y-2 text-sm">
-              <Badge className="border-accent text-accent">Installed</Badge>
-              <p className="break-all text-muted">{toolchain.path}</p>
-              <p>{toolchain.detail}</p>
-            </div>
-          ) : (
-            <div className="mt-3 space-y-3 text-sm text-muted">
-              <p>{toolchain.detail}</p>
-              <p className="text-ink">On a Mac:</p>
-              <code className="block rounded-xl bg-paper p-3 text-xs text-ink">
-                brew install higgsfield-ai/tap/higgsfield
-              </code>
-              <code className="block rounded-xl bg-paper p-3 text-xs text-ink">npm install -g @higgsfield/cli</code>
-              <p>Then run higgsfield auth login in Terminal. This app does not ask for the key.</p>
-            </div>
-          )}
+          <h2 className="font-serif text-xl">Local model</h2>
+          <Badge className="mt-3 border-accent text-accent">Installed</Badge>
+          <p className="mt-3 text-sm">{LOCAL_MODEL_NAME}</p>
+          <p className="mt-1 break-all text-xs text-muted">{LOCAL_MODEL_ID}</p>
+          <p className="mt-3 text-sm text-muted">Runs on this machine. The first generate downloads the weights.</p>
         </article>
 
         <article className="rounded-2xl border border-line bg-panel p-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-serif text-xl">Workspaces</h2>
-            <Button variant="outline" size="sm" onClick={() => setWorkspaceOpen(true)}>
-              New
+            <h2 className="font-serif text-xl">Output folder</h2>
+            <Button variant="outline" size="sm" onClick={() => void onChooseFolder()}>
+              Choose folder
             </Button>
           </div>
           {workspaces.length === 0 ? (
-            <p className="mt-3 text-sm text-muted">
-              A workspace is a folder for saved jobs. Add one for each local project you are developing.
-            </p>
+            <p className="mt-3 text-sm text-muted">Choose a folder. Images and videos are saved inside it.</p>
           ) : (
             <ul className="mt-3 space-y-2">
               {workspaces.map((workspace) => (
@@ -211,10 +167,10 @@ export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: J
         </article>
 
         <article className="rounded-2xl border border-dashed border-line p-4 text-sm text-muted">
-          <h2 className="font-serif text-lg text-ink">Local engine</h2>
+          <h2 className="font-serif text-lg text-ink">How a run works</h2>
           <p className="mt-2">
-            Generate on this screen confirms, then calls the higgsfield CLI with your account. Image and video files
-            from the open local model are made on Prompts and Templates.
+            Generate uses {LOCAL_MODEL_NAME} only. The picture or clip is written under higgsfield-jobs/local in the
+            folder you chose.
           </p>
         </article>
       </section>
@@ -224,7 +180,7 @@ export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: J
           <p className="text-[11px] tracking-[0.22em] text-accent uppercase">Create</p>
           <h1 className="mt-1 font-serif text-4xl tracking-tight">{skill?.title ?? 'Create'}</h1>
           <p className="mt-2 max-w-xl text-sm text-muted">
-            {skill?.summary} The command is built from the published CLI, then saved under higgsfield-jobs.
+            {skill?.summary} The prompt runs on {LOCAL_MODEL_NAME}.
           </p>
         </header>
 
@@ -248,13 +204,25 @@ export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: J
               ))}
             </ul>
           )}
-          <h3 className="mt-5 font-serif text-lg">Output</h3>
-          {log ? (
-            <pre className="mt-3 max-h-64 overflow-auto text-xs leading-relaxed whitespace-pre-wrap">{log}</pre>
+          <h3 className="mt-5 font-serif text-lg">Latest file</h3>
+          {localResult ? (
+            <figure className="mt-3 overflow-hidden rounded-xl border border-line bg-black">
+              {localResult.kind === 'image' ? (
+                <img
+                  alt=""
+                  className="max-h-80 w-full object-contain"
+                  src={`data:${localResult.mediaType};base64,${localResult.base64}`}
+                />
+              ) : (
+                <video className="max-h-80 w-full" controls src={`data:${localResult.mediaType};base64,${localResult.base64}`} />
+              )}
+              <figcaption className="space-y-1 p-3 text-xs text-muted">
+                <p className="text-sm text-ink">{localResult.modelName}</p>
+                <p className="break-all">{localResult.filePath}</p>
+              </figcaption>
+            </figure>
           ) : (
-            <p className="mt-2 text-sm text-muted">
-              Run output shows up here. A refused or unauthenticated CLI tells you to sign in from Terminal.
-            </p>
+            <p className="mt-2 text-sm text-muted">Generate to see the image or video here.</p>
           )}
         </article>
 
@@ -281,18 +249,13 @@ export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: J
             </select>
           </label>
 
-          {usesModel && (
-            <label className="space-y-1.5">
-              <span className="text-xs tracking-[0.16em] text-muted uppercase">Model</span>
-              <select className={selectClass} value={draft.modelId} onChange={(event) => patch({ modelId: event.target.value })}>
-                {models.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name} · {item.modality}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+          <div className="space-y-1.5">
+            <span className="text-xs tracking-[0.16em] text-muted uppercase">Model</span>
+            <p className="text-sm">
+              {LOCAL_MODEL_NAME}
+              <span className="text-muted"> · {LOCAL_MODEL_ID}</span>
+            </p>
+          </div>
 
           {draft.skillId === 'higgsfield-product-photoshoot' && (
             <label className="space-y-1.5">
@@ -411,103 +374,19 @@ export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: J
             </label>
           ) : null}
 
-          {(draft.skillId === 'higgsfield-soul-id' ||
-            draft.skillId === 'higgsfield-product-photoshoot' ||
-            draft.skillId === 'higgsfield-marketplace-cards' ||
-            (usesModel && model?.media !== 'video')) && (
-            <label className="space-y-1.5">
-              <span className="text-xs tracking-[0.16em] text-muted uppercase">
-                {draft.skillId === 'higgsfield-soul-id' ? 'Photo path' : 'Image path'}
-              </span>
-              <Input
-                placeholder={draft.skillId === 'higgsfield-soul-id' ? 'Path to a photo' : 'Optional reference image'}
-                value={draft.imagePath}
-                onChange={(event) => patch({ imagePath: event.target.value })}
-              />
-            </label>
-          )}
-
-          {(model?.media === 'video' || model?.id === 'brain_activity') && usesModel && (
-            <label className="space-y-1.5">
-              <span className="text-xs tracking-[0.16em] text-muted uppercase">Video path</span>
-              <Input value={draft.videoPath} onChange={(event) => patch({ videoPath: event.target.value })} />
-            </label>
-          )}
-
-          <div className="rounded-xl bg-paper p-3">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="text-xs tracking-[0.16em] text-muted uppercase">Command</span>
-              {'error' in built ? null : (
-                <Button variant="ghost" size="sm" onClick={() => void copyCommand()}>
-                  {copied ? 'Copied' : 'Copy'}
-                </Button>
-              )}
-            </div>
-            {'error' in built ? (
-              <p className="text-sm text-muted">{built.error}</p>
-            ) : (
-              <pre className="overflow-x-auto text-xs leading-relaxed whitespace-pre-wrap">{built.display}</pre>
-            )}
-          </div>
-
           {error && <p className="text-sm text-danger">{error}</p>}
 
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" disabled={'error' in built} onClick={() => void onSave()}>
               Save to workspace
             </Button>
-            <Button disabled={'error' in built || busy || !toolchain?.installed} onClick={() => setConfirmOpen(true)}>
-              {busy ? 'Running…' : 'Generate'}
+            <Button disabled={busy || !draft.prompt.trim()} onClick={() => void onGenerate()}>
+              {busy ? 'Generating…' : 'Generate'}
             </Button>
           </div>
         </div>
       </section>
 
-      <Dialog open={workspaceOpen} onOpenChange={setWorkspaceOpen}>
-        <DialogContent>
-          <DialogTitle className="font-serif text-2xl">New workspace</DialogTitle>
-          <DialogDescription className="mt-1 text-sm text-muted">
-            Jobs are written into higgsfield-jobs inside this folder.
-          </DialogDescription>
-          <div className="mt-4 space-y-3">
-            <Input placeholder="Name" value={workspaceName} onChange={(event) => setWorkspaceName(event.target.value)} />
-            <div className="flex gap-2">
-              <Input
-                placeholder="Folder path"
-                value={workspaceDir}
-                onChange={(event) => setWorkspaceDir(event.target.value)}
-              />
-              <Button
-                variant="outline"
-                onClick={() => {
-                  void api.pickDirectory().then((dir) => {
-                    if (dir) setWorkspaceDir(dir)
-                  })
-                }}
-              >
-                Browse
-              </Button>
-            </div>
-            <Button onClick={() => void onCreateWorkspace()}>Create</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent>
-          <DialogTitle className="font-serif text-2xl">Run this on your account?</DialogTitle>
-          <DialogDescription className="mt-2 text-sm text-muted">
-            Higgsfield will call the signed-in CLI. Generation spends credits. Login, if you need it, is higgsfield
-            auth login in Terminal.
-          </DialogDescription>
-          <div className="mt-4 flex gap-2">
-            <Button onClick={() => void onRun()}>Run</Button>
-            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
-              Cancel
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
