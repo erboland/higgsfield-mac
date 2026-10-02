@@ -1,83 +1,147 @@
 """Local image and video generation for Higgsfield.
 
 This runner is original. It loads one open image model and writes the file
-into the workspace. It does not call hosted Higgsfield models.
+into the output folder. It does not call hosted Higgsfield models.
 """
 
 from __future__ import annotations
 
 import json
-import subprocess
+import os
 import sys
 from pathlib import Path
 
 MODEL_ID = "nota-ai/bk-sdm-tiny"
 MODEL_NAME = "BK-SDM Tiny"
+REPO_DIR = f"models--{MODEL_ID.replace('/', '--')}"
 
 
 def describe() -> None:
     print(json.dumps({"modelId": MODEL_ID, "modelName": MODEL_NAME}), flush=True)
 
 
-def generate(job: dict) -> None:
-    prompt = str(job.get("prompt", "")).strip()
-    kind = job.get("kind")
-    output_dir = Path(job.get("outputDir", ""))
-    file_stem = str(job.get("fileStem", "")).strip()
-    if kind not in {"image", "video"}:
-        raise SystemExit("Local generation only writes an image or a video.")
-    if not prompt:
-        raise SystemExit("Write a prompt before a local run.")
-    if len(prompt) > 1000:
-        prompt = prompt[:1000]
-    if not file_stem or "/" in file_stem or "\\" in file_stem or ".." in file_stem:
-        raise SystemExit("The output name is not valid.")
-    if not output_dir.is_dir():
-        raise SystemExit("The workspace output folder does not exist.")
+def emit(phase: str, detail: str) -> None:
+    print(json.dumps({"phase": phase, "detail": detail}), flush=True)
 
+
+def snapshot_ready(cache_dir: Path) -> bool:
+    snapshots = cache_dir / REPO_DIR / "snapshots"
+    if not snapshots.is_dir():
+        return False
+    return any((child / "model_index.json").is_file() for child in snapshots.iterdir() if child.is_dir())
+
+
+def machine_caches() -> list[Path]:
+    found: list[Path] = []
+    for key in ("HF_HUB_CACHE", "HUGGINGFACE_HUB_CACHE"):
+        value = os.environ.get(key, "").strip()
+        if value:
+            found.append(Path(value).expanduser())
+    home = os.environ.get("HF_HOME", "").strip()
+    if home:
+        found.append(Path(home).expanduser() / "hub")
+    found.append(Path.home() / ".cache" / "huggingface" / "hub")
+    return found
+
+
+def choose_cache() -> Path:
+    app_cache = Path(os.environ.get("HIGGSFIELD_MODEL_HOME", "")).expanduser()
+    if not str(app_cache):
+        raise SystemExit("The app model folder is not set.")
+    for existing in machine_caches():
+        if snapshot_ready(existing):
+            return existing
+    if snapshot_ready(app_cache):
+        return app_cache
+    app_cache.mkdir(parents=True, exist_ok=True)
+    emit("download", "Downloading BK-SDM Tiny")
+    import inspect
+
+    from huggingface_hub import snapshot_download
+    from tqdm.auto import tqdm
+
+    class Report(tqdm):
+        def __init__(self, *args, **kwargs):
+            kwargs["disable"] = True
+            super().__init__(*args, **kwargs)
+            self._last = -1
+
+        def update(self, n=1):
+            displayed = super().update(n)
+            total = self.total or 0
+            if total:
+                percent = int(self.n * 100 / total)
+                if percent == 100 or percent - self._last >= 5:
+                    self._last = percent
+                    emit("download", f"Downloading BK-SDM Tiny, {percent}%")
+            return displayed
+
+    kwargs = {"cache_dir": str(app_cache)}
+    if "tqdm_class" in inspect.signature(snapshot_download).parameters:
+        kwargs["tqdm_class"] = Report
+    snapshot_download(MODEL_ID, **kwargs)
+    if not snapshot_ready(app_cache):
+        raise SystemExit("BK-SDM Tiny did not finish downloading.")
+    return app_cache
+
+
+def load_pipeline(cache: Path):
     import torch
     from diffusers import StableDiffusionPipeline
 
-    pipe = StableDiffusionPipeline.from_pretrained(
-        MODEL_ID,
-        variant="fp16",
-        dtype=torch.float32,
-        safety_checker=None,
-        requires_safety_checker=False,
-    )
+    base = {
+        "cache_dir": str(cache),
+        "safety_checker": None,
+        "requires_safety_checker": False,
+        "local_files_only": True,
+    }
+    attempts = [
+        {**base, "variant": "fp16", "dtype": torch.float32},
+        {**base, "dtype": torch.float32},
+        {**base, "variant": "fp16", "torch_dtype": torch.float32},
+        {**base, "torch_dtype": torch.float32},
+    ]
+    last: Exception | None = None
+    pipe = None
+    for kwargs in attempts:
+        try:
+            pipe = StableDiffusionPipeline.from_pretrained(MODEL_ID, **kwargs)
+            break
+        except Exception as error:  # noqa: BLE001 — the next load attempt uses a different argument
+            last = error
+    if pipe is None:
+        raise last or RuntimeError("BK-SDM Tiny could not be loaded.")
     pipe.set_progress_bar_config(disable=True)
     pipe.enable_attention_slicing()
+    return pipe
 
-    if kind == "image":
-        image = pipe(
-            prompt,
-            num_inference_steps=8,
-            guidance_scale=7.5,
-            height=384,
-            width=384,
-            generator=torch.Generator().manual_seed(7),
-        ).images[0]
-        path = output_dir / f"{file_stem}.png"
-        image.save(path)
-        print(json.dumps({"modelId": MODEL_ID, "modelName": MODEL_NAME, "kind": "image", "filePath": str(path)}), flush=True)
+
+def write_video(frames: Path, video: Path) -> None:
+    import numpy as np
+    from PIL import Image
+
+    try:
+        import av
+    except ImportError:
+        av = None
+    if av is not None:
+        container = av.open(str(video), mode="w")
+        stream = container.add_stream("libx264", rate=4)
+        stream.width = 320
+        stream.height = 320
+        stream.pix_fmt = "yuv420p"
+        for index in range(4):
+            image = Image.open(frames / f"frame_{index:02d}.png").convert("RGB")
+            frame = av.VideoFrame.from_ndarray(np.array(image), format="rgb24")
+            for packet in stream.encode(frame):
+                container.mux(packet)
+        for packet in stream.encode():
+            container.mux(packet)
+        container.close()
         return
 
-    frames = output_dir / f"{file_stem}-frames"
-    frames.mkdir(exist_ok=True)
-    for index in range(4):
-        image = pipe(
-            prompt,
-            num_inference_steps=4,
-            guidance_scale=7.5,
-            height=320,
-            width=320,
-            generator=torch.Generator().manual_seed(11 + index),
-        ).images[0]
-        image.save(frames / f"frame_{index:02d}.png")
-        if index == 0:
-            poster = output_dir / f"{file_stem}-poster.png"
-            image.save(poster)
-    video = output_dir / f"{file_stem}.mp4"
+    import subprocess
+
     subprocess.run(
         [
             "ffmpeg",
@@ -96,6 +160,60 @@ def generate(job: dict) -> None:
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
     )
+
+
+def generate(job: dict) -> None:
+    prompt = str(job.get("prompt", "")).strip()
+    kind = job.get("kind")
+    output_dir = Path(job.get("outputDir", ""))
+    file_stem = str(job.get("fileStem", "")).strip()
+    if kind not in {"image", "video"}:
+        raise SystemExit("Local generation only writes an image or a video.")
+    if not prompt:
+        raise SystemExit("Write a prompt before a local run.")
+    if len(prompt) > 1000:
+        prompt = prompt[:1000]
+    if not file_stem or "/" in file_stem or "\\" in file_stem or ".." in file_stem:
+        raise SystemExit("The output name is not valid.")
+    if not output_dir.is_dir() or output_dir.resolve() == Path(output_dir.anchor):
+        raise SystemExit("The output folder is not available.")
+
+    cache = choose_cache()
+    emit("generate", "Generating")
+    pipe = load_pipeline(cache)
+    import torch
+
+    if kind == "image":
+        image = pipe(
+            prompt,
+            num_inference_steps=8,
+            guidance_scale=7.5,
+            height=384,
+            width=384,
+            generator=torch.Generator().manual_seed(7),
+        ).images[0]
+        path = output_dir / f"{file_stem}.png"
+        image.save(path)
+        print(json.dumps({"modelId": MODEL_ID, "modelName": MODEL_NAME, "kind": "image", "filePath": str(path)}), flush=True)
+        return
+
+    frames = output_dir / f"{file_stem}-frames"
+    frames.mkdir(exist_ok=True)
+    poster = output_dir / f"{file_stem}-poster.png"
+    for index in range(4):
+        image = pipe(
+            prompt,
+            num_inference_steps=4,
+            guidance_scale=7.5,
+            height=320,
+            width=320,
+            generator=torch.Generator().manual_seed(11 + index),
+        ).images[0]
+        image.save(frames / f"frame_{index:02d}.png")
+        if index == 0:
+            image.save(poster)
+    video = output_dir / f"{file_stem}.mp4"
+    write_video(frames, video)
     print(
         json.dumps(
             {
