@@ -16,7 +16,7 @@ export function Models({ onUse }: { onUse: (modelId: string) => void }) {
         <p className="mt-2 text-sm text-muted">{LOCAL_MODEL_ID}</p>
         <p className="mt-4 text-sm leading-relaxed text-white/80">
           Image prompts save a PNG. Video prompts save a short MP4 made from frames of the same model, plus a poster.
-          Files go in the output folder you choose, under higgsfield-jobs/local.
+          Files go in Pictures/Higgsfield.
         </p>
         <Button className="mt-5" onClick={() => onUse(LOCAL_MODEL_ID)}>
           Use this model

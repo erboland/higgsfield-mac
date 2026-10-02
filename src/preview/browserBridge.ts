@@ -108,6 +108,9 @@ export function createBrowserBridge(): HiggsfieldApi {
       if (!response.ok) throw new Error(body?.error || 'Local generation failed.')
       return body as Awaited<ReturnType<HiggsfieldApi['generateLocal']>>
     },
+    onLocalProgress() {
+      return () => {}
+    },
     async runJob() {
       const runId = crypto.randomUUID()
       queueMicrotask(() => {
