@@ -26,7 +26,26 @@ jobs:
       - name: Install
         run: npm install
 
-      - name: Build an unsigned disk image
+      - name: Inspect the published v0.1.0 disk image
+        run: |
+          set -uo pipefail
+          curl -fsSL -o /tmp/Higgsfield-0.1.0-arm64.dmg "https://github.com/erboland/higgsfield-mac/releases/download/v0.1.0/Higgsfield-0.1.0-arm64.dmg"
+          echo "=== hdiutil verify v0.1.0 ==="
+          hdiutil verify /tmp/Higgsfield-0.1.0-arm64.dmg || echo "hdiutil verify exit $?"
+          ATTACH=$(hdiutil attach /tmp/Higgsfield-0.1.0-arm64.dmg -nobrowse)
+          echo "$ATTACH"
+          MOUNT=$(printf '%s\n' "$ATTACH" | awk '/\/Volumes\// { print $NF; exit }')
+          APP="$MOUNT/Higgsfield.app"
+          echo "=== codesign on the published app ==="
+          codesign --verify --deep --strict --verbose=2 "$APP" || echo "codesign exit $?"
+          echo "=== Arc quarantine on a writable copy ==="
+          ditto "$APP" /tmp/old-Higgsfield.app
+          /usr/bin/xattr -w com.apple.quarantine "0081;$(date +%s);Arc;" /tmp/old-Higgsfield.app
+          /usr/bin/xattr -l /tmp/old-Higgsfield.app || true
+          codesign --verify --deep --strict --verbose=2 /tmp/old-Higgsfield.app || echo "codesign after quarantine exit $?"
+          hdiutil detach "$MOUNT" || true
+
+      - name: Build the disk image
         run: npm run dist:mac
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -47,7 +66,56 @@ jobs:
             echo "No disk image was produced."
             exit 1
           fi
+          NOTES=$(cat <<'EOF'
+          Ad-hoc signed macOS app. No Apple Developer ID is configured, and this build is not notarized.
+
+          Open the disk image and double-click "Open Higgsfield.command". It runs /usr/bin/xattr -cr on Higgsfield.app and then opens the app. Right-click Open on the app does not get past the damaged dialog.
+          EOF
+          )
           if ! gh release view "$TAG" >/dev/null 2>&1; then
-            gh release create "$TAG" --title "$TAG" --notes "Unsigned macOS disk image. No Apple certificate is configured."
+            gh release create "$TAG" --title "$TAG" --notes "$NOTES"
           fi
           gh release upload "$TAG" "${files[@]}" --clobber
+
+      - name: Download the published disk image and verify it
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="v$(node -p "require('./package.json').version")"
+          fi
+          VERSION="${TAG#v}"
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Higgsfield-${VERSION}-arm64.dmg"
+          ok=0
+          for i in 1 2 3 4 5 6 7 8; do
+            if curl -fL --retry 3 -o /tmp/published.dmg "$URL"; then
+              ok=1
+              break
+            fi
+            echo "Download not ready (attempt $i): $URL"
+            sleep 15
+          done
+          test "$ok" = 1
+          test -s /tmp/published.dmg
+          hdiutil verify /tmp/published.dmg
+          ATTACH=$(hdiutil attach /tmp/published.dmg -nobrowse)
+          MOUNT=$(printf '%s\n' "$ATTACH" | awk '/\/Volumes\// { print $NF; exit }')
+          codesign --verify --deep --strict --verbose=2 "$MOUNT/Higgsfield.app"
+          grep -F '/usr/bin/xattr -cr' "$MOUNT/Open Higgsfield.command"
+          if grep -E '(^|[^/])xattr -' "$MOUNT/Open Higgsfield.command"; then
+            echo "Opener calls xattr without /usr/bin."
+            exit 1
+          fi
+          ditto "$MOUNT/Higgsfield.app" /tmp/new-Higgsfield.app
+          /usr/bin/xattr -w com.apple.quarantine "0081;$(date +%s);Arc;" /tmp/new-Higgsfield.app
+          codesign --verify --deep --strict --verbose=2 /tmp/new-Higgsfield.app
+          /usr/bin/xattr -cr /tmp/new-Higgsfield.app
+          if /usr/bin/xattr -p com.apple.quarantine /tmp/new-Higgsfield.app; then
+            echo "quarantine was not cleared"
+            exit 1
+          fi
+          hdiutil detach "$MOUNT"
+          echo "Verified $URL"

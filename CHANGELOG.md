@@ -4,6 +4,7 @@
 
 - Generate uses the local model only. The output folder is chosen with the system folder dialog, and the app creates Pictures/Higgsfield so a run is not blocked on a typed path.
 - Template cards load their demo image and video from the app bundle.
+- The app bundle is ad-hoc signed. It is not notarized. The disk image includes Open Higgsfield.command, which runs `/usr/bin/xattr -cr` on Higgsfield.app and then opens it.
 
 ## 0.1.0
 
