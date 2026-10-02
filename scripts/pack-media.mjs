@@ -2,13 +2,13 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 const root = process.cwd()
-const chunkSize = 48_000
+const chunkSize = 15_000
 const sources = []
 
 function addDir(dir) {
   if (!fs.existsSync(dir)) return
   for (const name of fs.readdirSync(dir)) {
-    if (!/\.(png|mp4)$/.test(name)) continue
+    if (!/\.(jpg|mp4)$/.test(name)) continue
     sources.push(path.join(dir, name))
   }
 }

@@ -8,11 +8,11 @@ Hosted Higgsfield models have no public weights, so they are not listed and this
 
 ## Screenshots
 
-![Prompts library](docs/screenshots/prompts.png)
+![Prompts library](docs/screenshots/prompts.jpg)
 
-![Templates with generated demos](docs/screenshots/templates.png)
+![Templates with generated demos](docs/screenshots/templates.jpg)
 
-![Create, with the output folder and the local model](docs/screenshots/create.png)
+![Create, with the output folder and the local model](docs/screenshots/create.jpg)
 
 ## Local model
 

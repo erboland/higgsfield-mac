@@ -24,14 +24,31 @@ for (const full of walk(partsRoot)) {
   groups.set(match[1], list)
 }
 
+function contiguous(parts) {
+  const indexes = parts.map((part) => part.index).sort((a, b) => a - b)
+  return indexes.every((index, position) => index === position)
+}
+
+function validMedia(bytes) {
+  if (bytes.length < 32) return false
+  const jpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[bytes.length - 2] === 0xff && bytes[bytes.length - 1] === 0xd9
+  const png = bytes.subarray(0, 8).toString('hex') === '89504e470d0a1a0a' && bytes.includes(Buffer.from('IEND'))
+  const mp4 = bytes.subarray(4, 8).toString() === 'ftyp'
+  return jpeg || png || mp4
+}
+
 for (const [relB64, parts] of groups) {
+  if (!relB64.endsWith('.b64') || relB64.includes('..') || !contiguous(parts)) continue
   parts.sort((a, b) => a.index - b.index)
   const encoded = parts.map((part) => fs.readFileSync(part.full, 'utf8')).join('').replace(/\s+/g, '')
-  if (!relB64.endsWith('.b64')) continue
+  const bytes = Buffer.from(encoded, 'base64')
+  if (!validMedia(bytes)) {
+    console.log(`skip ${relB64}: decoded bytes are not a complete image or video`)
+    continue
+  }
   const rel = relB64.slice(0, -4)
-  if (rel.includes('..')) continue
   const target = path.join(root, rel)
   fs.mkdirSync(path.dirname(target), { recursive: true })
-  fs.writeFileSync(target, Buffer.from(encoded, 'base64'))
-  console.log(`restored ${rel} (${fs.statSync(target).size} bytes)`)
+  fs.writeFileSync(target, bytes)
+  console.log(`restored ${rel} (${bytes.length} bytes)`)
 }
