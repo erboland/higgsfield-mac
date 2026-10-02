@@ -40,10 +40,17 @@ function sign(target) {
   if (target.endsWith('.app')) {
     args.push('--options', 'runtime', '--entitlements', entitlements)
   }
-  execFileSync('/usr/bin/codesign', args.concat([target]), { stdio: 'inherit' })
+  try {
+    execFileSync('/usr/bin/codesign', args.concat([target]), { stdio: 'pipe' })
+  } catch (error) {
+    const text = `${error.stderr ?? ''}\n${error.stdout ?? ''}\n${error.message ?? ''}`
+    if (/unsupported format|not in an executable format/.test(text)) return
+    throw error
+  }
 }
 
 export function adhocSign(app) {
+  execFileSync('/usr/bin/xattr', ['-cr', app], { stdio: 'inherit' })
   const items = collect(path.join(app, 'Contents'))
   items.sort((a, b) => b.split(path.sep).length - a.split(path.sep).length || a.localeCompare(b))
   for (const item of items) sign(item)

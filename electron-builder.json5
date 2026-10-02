@@ -9,8 +9,9 @@
   files: ["dist", "dist-electron"],
   asarUnpack: ["dist/demos/**"],
   extraResources: [
+    { from: "vendor/python", to: "python" },
     { from: "runner/local_generate.py", to: "runner/local_generate.py" },
-    { from: "runner/requirements.txt", to: "runner/requirements.txt" },
+    { from: "public/demos", to: "demos", filter: ["*.jpg", "*.jpeg", "*.png", "*.mp4"] },
   ],
   mac: {
     category: "public.app-category.developer-tools",

@@ -9,4 +9,9 @@ release
 .vite
 runner/.venv/
 runner/.cache/
+vendor/
 public/demos/*.b64
+public/demos/*.jpg
+public/demos/*.jpeg
+public/demos/*.png
+public/demos/*.mp4
