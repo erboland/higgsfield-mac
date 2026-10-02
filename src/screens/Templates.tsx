@@ -72,6 +72,7 @@ export function Templates({ onStart }: { onStart: (entry: TemplateEntry) => void
           result={local.result}
           error={local.error}
           busy={local.busy}
+          status={local.status}
         />
         {visible.length === 0 ? (
           <p className="mt-8 text-sm text-muted">No templates match that search.</p>

@@ -11,6 +11,9 @@ export function useLocalGeneration() {
   const [result, setResult] = useState<LocalGeneration | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [status, setStatus] = useState('')
+
+  useEffect(() => api.onLocalProgress((event) => setStatus(event.detail)), [api])
 
   async function refresh() {
     const next = await api.listWorkspaces()
@@ -36,11 +39,8 @@ export function useLocalGeneration() {
   }
 
   async function generate(prompt: string, kind: LocalKind) {
-    if (!workspaceId) {
-      setError('Add a workspace folder before a local run.')
-      return
-    }
     setBusy(true)
+    setStatus('Generating')
     setError('')
     try {
       setResult(await api.generateLocal({ workspaceId, prompt, kind }))
@@ -51,7 +51,7 @@ export function useLocalGeneration() {
     }
   }
 
-  return { workspaces, workspaceId, setWorkspaceId, createWorkspace, result, error, busy, generate }
+  return { workspaces, workspaceId, setWorkspaceId, createWorkspace, result, error, busy, status, generate }
 }
 
 export function LocalRunPanel({
@@ -62,6 +62,7 @@ export function LocalRunPanel({
   result,
   error,
   busy,
+  status,
 }: {
   workspaces: Workspace[]
   workspaceId: string
@@ -70,6 +71,7 @@ export function LocalRunPanel({
   result: LocalGeneration | null
   error: string
   busy: boolean
+  status: string
 }) {
   const api = useMemo(() => getApi(), [])
   const selected = workspaces.find((workspace) => workspace.id === workspaceId) ?? workspaces[0]
@@ -118,7 +120,7 @@ export function LocalRunPanel({
       {selected && workspaces.length > 1 ? (
         <p className="mt-2 truncate text-xs text-muted">{selected.directory}</p>
       ) : null}
-      {busy && <p className="mt-4 text-sm">Generating with {LOCAL_MODEL_NAME}…</p>}
+      {busy && <p className="mt-4 text-sm">{status || `Generating with ${LOCAL_MODEL_NAME}`}</p>}
       {error && <p className="mt-4 text-sm text-danger">{error}</p>}
       {result && (
         <figure data-local-run className="mt-4 overflow-hidden rounded-2xl border border-line bg-black">

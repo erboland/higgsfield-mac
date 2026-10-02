@@ -57,6 +57,7 @@ export function Prompts({ onUse }: { onUse: (entry: PromptEntry) => void }) {
         result={local.result}
         error={local.error}
         busy={local.busy}
+        status={local.status}
       />
 
       <div className="mt-5 flex flex-wrap gap-2">
