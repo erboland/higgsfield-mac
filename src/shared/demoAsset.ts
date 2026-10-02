@@ -8,7 +8,6 @@ export function demoAsset(
 ): string {
   const safe = file.split('/').filter(Boolean).pop() ?? ''
   if (!/^[a-z0-9-]+\.(png|jpe?g|mp4)$/.test(safe)) return ''
-  if (!env.dev && env.electron) return `media://app/demos/${safe}`
   const base = env.base.endsWith('/') ? env.base : `${env.base}/`
   return `${base}demos/${safe}`
 }

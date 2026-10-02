@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { test } from 'node:test'
 import { LOCAL_MODEL_ID, LOCAL_MODEL_NAME, localMediaKind } from '../src/shared/localRun.ts'
@@ -25,4 +26,10 @@ test('the runner names the open model and not a hosted Higgsfield model', () => 
   assert.equal(described.modelName, LOCAL_MODEL_NAME)
   assert.equal(described.modelId, 'nota-ai/bk-sdm-tiny')
   assert.doesNotMatch(described.modelName, /soul|kling|veo|seedance/i)
+})
+
+test('the packaged runner does not tell the user to create a venv', () => {
+  const source = readFileSync('runner/generate.ts', 'utf8')
+  assert.doesNotMatch(source, /pip install/)
+  assert.match(source, /does not include the local runtime/)
 })

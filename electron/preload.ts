@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { HiggsfieldApi, JobEvent } from '../src/shared/types.ts'
+import type { HiggsfieldApi, JobEvent, LocalProgress } from '../src/shared/types.ts'
 
 const api: HiggsfieldApi = {
   getInfo: () => ipcRenderer.invoke('app:info'),
@@ -12,6 +12,11 @@ const api: HiggsfieldApi = {
   saveJob: (workspaceId, draft) => ipcRenderer.invoke('jobs:save', workspaceId, draft),
   runJob: (workspaceId, draft) => ipcRenderer.invoke('jobs:run', workspaceId, draft),
   generateLocal: (input) => ipcRenderer.invoke('local:generate', input),
+  onLocalProgress: (listener) => {
+    const wrapped = (_event: unknown, payload: LocalProgress) => listener(payload)
+    ipcRenderer.on('local:progress', wrapped)
+    return () => ipcRenderer.off('local:progress', wrapped)
+  },
   onJobEvent: (listener) => {
     const wrapped = (_event: unknown, payload: JobEvent) => listener(payload)
     ipcRenderer.on('job-event', wrapped)

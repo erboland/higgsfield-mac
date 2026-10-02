@@ -96,6 +96,11 @@ export type LocalGeneration = {
   base64: string
 }
 
+export type LocalProgress = {
+  phase: 'download' | 'generate'
+  detail: string
+}
+
 export type HiggsfieldApi = {
   getInfo(): Promise<AppInfo>
   getToolchain(): Promise<ToolchainStatus>
@@ -107,6 +112,7 @@ export type HiggsfieldApi = {
   saveJob(workspaceId: string, draft: JobDraft): Promise<SavedJob>
   runJob(workspaceId: string, draft: JobDraft): Promise<{ runId: string }>
   generateLocal(input: { workspaceId: string; prompt: string; kind: 'image' | 'video' }): Promise<LocalGeneration>
+  onLocalProgress(listener: (event: LocalProgress) => void): () => void
   onJobEvent(listener: (event: JobEvent) => void): () => void
   openExternal(url: string): Promise<void>
 }
