@@ -23,7 +23,7 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 function demoFile(name: string): string | null {
-  if (!/^[a-z0-9-]+\.(png|mp4)$/.test(name)) return null
+  if (!/^[a-z0-9-]+\.(png|jpe?g|mp4)$/.test(name)) return null
   const unpacked = path.join(process.resourcesPath, 'app.asar.unpacked', 'dist', 'demos', name)
   const packed = path.join(RENDERER_DIST, 'demos', name)
   if (fs.existsSync(unpacked)) return unpacked

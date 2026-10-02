@@ -87,7 +87,7 @@ export function Templates({ onStart }: { onStart: (entry: TemplateEntry) => void
                     {entry.category === 'video' ? (
                       <video
                         className="h-40 w-full bg-black object-cover"
-                        poster={demoAsset(`${entry.id}.png`)}
+                        poster={demoAsset(`${entry.id}.jpg`)}
                         src={demoAsset(`${entry.id}.mp4`)}
                         muted
                         loop
@@ -95,7 +95,7 @@ export function Templates({ onStart }: { onStart: (entry: TemplateEntry) => void
                         autoPlay
                       />
                     ) : (
-                      <img className="h-40 w-full bg-black object-cover" src={demoAsset(`${entry.id}.png`)} alt="" />
+                      <img className="h-40 w-full bg-black object-cover" src={demoAsset(`${entry.id}.jpg`)} alt="" />
                     )}
                     <div className="flex flex-1 flex-col p-4">
                       <p className="text-[11px] tracking-[0.16em] text-accent uppercase">{skill?.title}</p>
