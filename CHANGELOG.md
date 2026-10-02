@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+- The disk image includes the local runtime. Generate downloads BK-SDM Tiny only when it is not already on the machine, then writes the file into `~/Pictures/Higgsfield`.
+- Template demos are packed in the app and shown on the cards.
+- The output folder is never `/`.
+
 ## 0.1.1
 
 - Generate uses the local model only. The output folder is chosen with the system folder dialog, and the app creates Pictures/Higgsfield so a run is not blocked on a typed path.

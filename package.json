@@ -1,7 +1,7 @@
 {
   "name": "higgsfield-local",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Higgsfield for Mac — local development studio for Higgsfield skills and models.",
   "author": "Higgsfield Local",
   "license": "MIT",
@@ -10,9 +10,9 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 43127",
     "dev:web": "VITE_WEB_PREVIEW=1 vite --host 127.0.0.1 --port 43127",
-    "prebuild": "node scripts/restore-media.mjs && node scripts/unpack-demos.mjs",
+    "prebuild": "node scripts/restore-media.mjs && node scripts/unpack-demos.mjs && node --experimental-strip-types scripts/check-demos.ts",
     "build": "tsc --noEmit && vite build",
-    "dist:mac": "npm run build && electron-builder --mac --publish never && node scripts/make-dmg.mjs",
+    "dist:mac": "node scripts/bundle-runtime.mjs && npm run build && electron-builder --mac --publish never && node scripts/make-dmg.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 43127",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "typecheck": "tsc --noEmit"
