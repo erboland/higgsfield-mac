@@ -27,6 +27,9 @@ export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: J
   const [localResult, setLocalResult] = useState<LocalGeneration | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [status, setStatus] = useState('')
+
+  useEffect(() => api.onLocalProgress((event) => setStatus(event.detail)), [api])
 
   const built = buildCommand(draft)
   const skill = skills.find((item) => item.id === draft.skillId)
@@ -92,10 +95,6 @@ export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: J
   }
 
   async function onGenerate() {
-    if (!workspaceId) {
-      setError('Choose an output folder first.')
-      return
-    }
     const prompt = draft.prompt.trim()
     if (!prompt) {
       setError('Write a prompt first.')
@@ -103,6 +102,7 @@ export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: J
     }
     const kind = model?.modality === 'video' ? 'video' : 'image'
     setBusy(true)
+    setStatus('Generating')
     setError('')
     try {
       setLocalResult(await api.generateLocal({ workspaceId, prompt, kind }))
@@ -121,7 +121,7 @@ export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: J
           <Badge className="mt-3 border-accent text-accent">Installed</Badge>
           <p className="mt-3 text-sm">{LOCAL_MODEL_NAME}</p>
           <p className="mt-1 break-all text-xs text-muted">{LOCAL_MODEL_ID}</p>
-          <p className="mt-3 text-sm text-muted">Runs on this machine. The first generate downloads the weights.</p>
+          <p className="mt-3 text-sm text-muted">Runs on this machine. Generate downloads the weights when they are not already here.</p>
         </article>
 
         <article className="rounded-2xl border border-line bg-panel p-4">
@@ -169,8 +169,7 @@ export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: J
         <article className="rounded-2xl border border-dashed border-line p-4 text-sm text-muted">
           <h2 className="font-serif text-lg text-ink">How a run works</h2>
           <p className="mt-2">
-            Generate uses {LOCAL_MODEL_NAME} only. The picture or clip is written under higgsfield-jobs/local in the
-            folder you chose.
+            Generate uses {LOCAL_MODEL_NAME} only. The picture or clip is written into the output folder.
           </p>
         </article>
       </section>
@@ -374,6 +373,7 @@ export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: J
             </label>
           ) : null}
 
+          {busy && <p className="text-sm">{status || 'Generating'}</p>}
           {error && <p className="text-sm text-danger">{error}</p>}
 
           <div className="flex flex-wrap gap-2">
