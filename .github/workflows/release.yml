@@ -52,7 +52,7 @@ jobs:
           code=$?
           tail -n 80 /tmp/dist.log
           if [ "$code" != 0 ]; then
-            msg=$(tail -n 20 /tmp/dist.log | tr '\n' ' ' | cut -c1-1800)
+            msg=$(tail -c 1600 /tmp/dist.log | tr '\n' ' ')
             echo "::error title=dist:mac::$msg"
             exit "$code"
           fi
