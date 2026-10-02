@@ -2,6 +2,7 @@ import { app } from 'electron'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { homeForPictures, picturesFolder, usableFolder } from '../src/shared/outputFolder.ts'
 import type { SavedJob, Workspace } from '../src/shared/types.ts'
 
 type Store = { workspaces: Workspace[] }
@@ -26,17 +27,30 @@ async function writeStore(store: Store): Promise<void> {
   await fs.writeFile(storePath(), JSON.stringify(store, null, 2))
 }
 
+function homeDir(): string {
+  const fromApp = app.isReady() ? app.getPath('home') : ''
+  return homeForPictures([fromApp, os.homedir()])
+}
+
 export function defaultOutputDir(): string {
-  const pictures = app.isReady() ? app.getPath('pictures') : path.join(os.homedir(), 'Pictures')
-  return path.join(pictures, 'Higgsfield')
+  return picturesFolder(homeDir())
 }
 
 export async function listWorkspaces(): Promise<Workspace[]> {
+  const home = homeDir()
   const store = await readStore()
-  if (store.workspaces.length > 0) return store.workspaces
-  const directory = defaultOutputDir()
-  await fs.mkdir(directory, { recursive: true })
-  const created = await createWorkspace({ name: 'Higgsfield', directory })
+  let changed = false
+  const workspaces = store.workspaces.map((workspace) => {
+    const directory = usableFolder(workspace.directory, home)
+    if (directory !== workspace.directory) changed = true
+    return directory === workspace.directory ? workspace : { ...workspace, directory }
+  })
+  if (changed) await writeStore({ workspaces })
+  if (workspaces.length > 0) {
+    for (const workspace of workspaces) await fs.mkdir(workspace.directory, { recursive: true })
+    return workspaces
+  }
+  const created = await createWorkspace({ name: 'Higgsfield', directory: picturesFolder(home) })
   return [created]
 }
 
@@ -45,9 +59,10 @@ export async function createWorkspace(input: { name: string; directory: string }
   if (!name || name.length > 80 || /[\r\n\0]/.test(name)) {
     throw new Error('Workspace name needs 1–80 characters.')
   }
-  const directory = path.resolve(input.directory.trim())
+  const directory = usableFolder(input.directory, homeDir())
+  await fs.mkdir(directory, { recursive: true })
   const stat = await fs.stat(directory).catch(() => null)
-  if (!stat?.isDirectory()) throw new Error('Pick a folder that already exists.')
+  if (!stat?.isDirectory()) throw new Error('Could not choose an output folder.')
   const workspace: Workspace = {
     id: crypto.randomUUID(),
     name,
@@ -69,9 +84,15 @@ export async function removeWorkspace(id: string): Promise<void> {
 
 export async function workspaceById(id: string): Promise<Workspace> {
   const store = await readStore()
-  const workspace = store.workspaces.find((item) => item.id === id)
-  if (!workspace) throw new Error('That workspace is gone.')
-  return workspace
+  const index = store.workspaces.findIndex((item) => item.id === id)
+  if (index < 0) throw new Error('That workspace is gone.')
+  const workspace = store.workspaces[index]
+  const directory = usableFolder(workspace.directory, homeDir())
+  if (directory === workspace.directory) return workspace
+  const next = { ...workspace, directory }
+  store.workspaces[index] = next
+  await writeStore(store)
+  return next
 }
 
 function jobsDir(workspace: Workspace): string {

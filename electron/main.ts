@@ -1,13 +1,21 @@
-import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, protocol, shell } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import { buildCommand } from '../src/shared/command.ts'
 import type { JobDraft } from '../src/shared/types.ts'
 import { generateLocal } from '../runner/generate.ts'
 import { runJob, stopActiveJob } from './runner.ts'
 import { inspectToolchain } from './toolchain.ts'
-import { createWorkspace, listJobs, listWorkspaces, removeWorkspace, saveJob, workspaceById } from './workspaces.ts'
+import {
+  createWorkspace,
+  defaultOutputDir,
+  listJobs,
+  listWorkspaces,
+  removeWorkspace,
+  saveJob,
+  workspaceById,
+} from './workspaces.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 process.env.APP_ROOT = path.join(__dirname, '..')
@@ -24,11 +32,18 @@ protocol.registerSchemesAsPrivileged([
 
 function demoFile(name: string): string | null {
   if (!/^[a-z0-9-]+\.(png|jpe?g|mp4)$/.test(name)) return null
-  const unpacked = path.join(process.resourcesPath, 'app.asar.unpacked', 'dist', 'demos', name)
-  const packed = path.join(RENDERER_DIST, 'demos', name)
-  if (fs.existsSync(unpacked)) return unpacked
-  if (fs.existsSync(packed)) return packed
-  return null
+  const candidates = [
+    path.join(process.resourcesPath, 'demos', name),
+    path.join(process.resourcesPath, 'app.asar.unpacked', 'dist', 'demos', name),
+    path.join(RENDERER_DIST, 'demos', name),
+  ]
+  return candidates.find((candidate) => fs.existsSync(candidate)) ?? null
+}
+
+function demoType(name: string): string {
+  if (name.endsWith('.mp4')) return 'video/mp4'
+  if (name.endsWith('.png')) return 'image/png'
+  return 'image/jpeg'
 }
 
 let win: BrowserWindow | null = null
@@ -74,7 +89,7 @@ app.whenReady().then(() => {
     const name = path.basename(new URL(request.url).pathname)
     const file = demoFile(name)
     if (!file) return new Response('Not found', { status: 404 })
-    return net.fetch(pathToFileURL(file).toString())
+    return new Response(fs.readFileSync(file), { headers: { 'content-type': demoType(name) } })
   })
   ipcMain.handle('app:info', () => ({ platform: process.platform, bridge: 'desktop' as const }))
   ipcMain.handle('toolchain:get', () => inspectToolchain())
@@ -104,16 +119,25 @@ app.whenReady().then(() => {
   })
   ipcMain.handle(
     'local:generate',
-    (_event, input: { workspaceId: string; prompt: string; kind: 'image' | 'video' }) => {
-      if (!input || typeof input.workspaceId !== 'string' || typeof input.prompt !== 'string') {
-        throw new Error('A local run needs a workspace and a prompt.')
-      }
+    async (event, input: { workspaceId?: string; prompt: string; kind: 'image' | 'video' }) => {
+      if (!input || typeof input.prompt !== 'string') throw new Error('Write a prompt before a local run.')
       if (input.kind !== 'image' && input.kind !== 'video') {
         throw new Error('Local generation only writes an image or a video.')
       }
-      return workspaceById(input.workspaceId).then((workspace) =>
-        generateLocal({ prompt: input.prompt, kind: input.kind, directory: workspace.directory }),
-      )
+      const workspace =
+        typeof input.workspaceId === 'string' && input.workspaceId
+          ? await workspaceById(input.workspaceId).catch(() => null)
+          : null
+      return generateLocal({
+        prompt: input.prompt,
+        kind: input.kind,
+        directory: workspace?.directory || defaultOutputDir(),
+        homeDir: app.getPath('home'),
+        modelHome: path.join(app.getPath('userData'), 'models'),
+        onProgress: (progress) => {
+          if (!event.sender.isDestroyed()) event.sender.send('local:progress', progress)
+        },
+      })
     },
   )
   ipcMain.handle('jobs:run', (event, workspaceId: string, draft: JobDraft) => {
