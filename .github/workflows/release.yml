@@ -46,7 +46,16 @@ jobs:
           hdiutil detach "$MOUNT" || true
 
       - name: Build the disk image
-        run: npm run dist:mac
+        run: |
+          set +e
+          npm run dist:mac > /tmp/dist.log 2>&1
+          code=$?
+          tail -n 80 /tmp/dist.log
+          if [ "$code" != 0 ]; then
+            msg=$(tail -n 20 /tmp/dist.log | tr '\n' ' ' | cut -c1-1800)
+            echo "::error title=dist:mac::$msg"
+            exit "$code"
+          fi
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
