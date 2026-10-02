@@ -1,0 +1,48 @@
+name: Publish screenshots
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  screenshots:
+    if: contains(github.event.head_commit.message, 'Decode screenshots')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Decode screenshot slices
+        run: node scripts/restore-screenshots.mjs
+
+      - name: Confirm each screenshot decodes
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          for f in docs/screenshots/prompts.jpg docs/screenshots/templates.jpg docs/screenshots/create.jpg; do
+            test -s "$f"
+            ffmpeg -v error -i "$f" -f null -
+          done
+
+      - name: Commit the image files
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots/prompts.jpg docs/screenshots/templates.jpg docs/screenshots/create.jpg
+          if git diff --cached --quiet; then
+            echo "Screenshots were already in the tree."
+            exit 0
+          fi
+          git commit -m "Add README screenshots."
+          git push
