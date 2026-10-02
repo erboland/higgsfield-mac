@@ -23,6 +23,7 @@ if (!existsSync(python)) {
 if (!existsSync(python)) {
   throw new Error('The standalone Python archive did not contain bin/python3.')
 }
+execFileSync('/usr/bin/xattr', ['-cr', root], { stdio: 'inherit' })
 
 const pipEnv = { ...process.env, PIP_DISABLE_PIP_VERSION_CHECK: '1' }
 execFileSync(python, ['-m', 'pip', 'install', '--upgrade', 'pip'], { stdio: 'inherit', env: pipEnv })
