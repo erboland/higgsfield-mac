@@ -96,9 +96,24 @@ export type LocalGeneration = {
   base64: string
 }
 
+export type LocalModelChoice = {
+  id: string
+  name: string
+  detail: string
+  installed: boolean
+  selectable: boolean
+  kind: 'open' | 'checkpoint' | 'hosted'
+}
+
+export type LocalModelList = {
+  models: LocalModelChoice[]
+  comfyFolders: string[]
+}
+
 export type LocalProgress = {
   phase: 'download' | 'generate'
   detail: string
+  percent?: number
 }
 
 export type HiggsfieldApi = {
@@ -111,7 +126,8 @@ export type HiggsfieldApi = {
   listJobs(workspaceId: string): Promise<SavedJob[]>
   saveJob(workspaceId: string, draft: JobDraft): Promise<SavedJob>
   runJob(workspaceId: string, draft: JobDraft): Promise<{ runId: string }>
-  generateLocal(input: { workspaceId: string; prompt: string; kind: 'image' | 'video' }): Promise<LocalGeneration>
+  listLocalModels(): Promise<LocalModelList>
+  generateLocal(input: { workspaceId: string; prompt: string; kind: 'image' | 'video'; modelId?: string }): Promise<LocalGeneration>
   onLocalProgress(listener: (event: LocalProgress) => void): () => void
   onJobEvent(listener: (event: JobEvent) => void): () => void
   openExternal(url: string): Promise<void>
