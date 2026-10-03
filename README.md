@@ -30,27 +30,21 @@ Template cards ship with a demo generated from each template prompt. Those files
 
 The current disk image is on [GitHub Releases](https://github.com/erboland/higgsfield-mac/releases/latest):
 
-[Higgsfield-0.1.2-arm64.dmg](https://github.com/erboland/higgsfield-mac/releases/download/v0.1.2/Higgsfield-0.1.2-arm64.dmg)
+[Higgsfield-0.1.3-arm64.dmg](https://github.com/erboland/higgsfield-mac/releases/download/v0.1.3/Higgsfield-0.1.3-arm64.dmg)
 
-There is no Apple Developer ID. The app is ad-hoc signed, and it is not notarized. Arc and other browsers attach a quarantine flag. macOS then says “Higgsfield” is damaged, and right-click Open does not get past that dialog.
+There is no Apple Developer ID. The app is ad-hoc signed, and it is not notarized. A browser attaches a quarantine flag. macOS then says “Higgsfield” is damaged, and right-click Open does not get past that dialog. The disk image also contains `Open Higgsfield.command`. macOS blocks that file (“Open Higgsfield.command” Not Opened. Apple could not verify it is free of malware), so the file never runs and never clears quarantine.
 
-Open it this way:
-
-1. Open the disk image.
-2. Double-click **Open Higgsfield.command**.
-3. If macOS asks whether to open the command, choose Open. Right-click the command and choose Open if the first click is blocked.
-4. The opener copies Higgsfield into Applications when the disk image is read-only, runs `/usr/bin/xattr -cr` on `Higgsfield.app`, and opens the app.
-
-The `xattr` on your PATH is not the system command. It rejected `-r`, so the quarantine flag stayed in place. Use `/usr/bin/xattr`.
-
-After the app is in Applications, the same step in Terminal is:
+Open the disk image so the volume `Higgsfield` is mounted. The volume is read-only, so copy the app into Applications and clear the flag in Terminal. The `xattr` on your PATH is not the system command. It rejected `-r`. These commands call `/usr/bin/xattr`:
 
 ```bash
+/usr/bin/ditto "/Volumes/Higgsfield/Higgsfield.app" /Applications/Higgsfield.app
 /usr/bin/xattr -cr /Applications/Higgsfield.app
 /usr/bin/open /Applications/Higgsfield.app
 ```
 
-The disk image is created with `hdiutil` and checked with `hdiutil verify` before it is published. If an older download says the disk image is corrupted, or says the app is damaged, download 0.1.2 again and discard the older file.
+If `/Applications` is not writable, use `$HOME/Applications` in all three commands.
+
+The disk image is created with `hdiutil` and checked with `hdiutil verify` before it is published. If an older download says the disk image is corrupted, or says the app is damaged, download 0.1.3 again and discard the older file.
 
 ## Develop
 
@@ -82,7 +76,7 @@ On a Mac:
 npm run dist:mac
 ```
 
-`npm run dist:mac` writes `release/<version>/Higgsfield-<version>-<arch>.dmg`. electron-builder does not use a Developer ID (`identity` is null). `scripts/adhoc-sign.mjs` then ad-hoc signs the bundle, and the disk image must pass `codesign --verify --deep --strict` and `hdiutil verify`. The image also contains `Open Higgsfield.command`, which runs `/usr/bin/xattr -cr` on `Higgsfield.app` and opens it. The app is not notarized. GitHub Actions on `macos-latest` runs that command for a `v*` tag, or for a `main` commit whose message contains `Release v`, and attaches the `.dmg` to the GitHub Release.
+`npm run dist:mac` writes `release/<version>/Higgsfield-<version>-<arch>.dmg`. electron-builder does not use a Developer ID (`identity` is null). `scripts/adhoc-sign.mjs` then ad-hoc signs the bundle, and the disk image must pass `codesign --verify --deep --strict` and `hdiutil verify`. The image also contains `Open Higgsfield.command`. macOS blocks that file before it can run, so the install steps above clear quarantine with `/usr/bin/xattr -cr` in Terminal. The app is not notarized. GitHub Actions on `macos-latest` builds the disk image for a `v*` tag, or for a `main` commit whose message contains `Release v`, and attaches the `.dmg` to the GitHub Release.
 
 ## What you can do
 

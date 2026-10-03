@@ -78,7 +78,11 @@ jobs:
           NOTES=$(cat <<'EOF'
           Ad-hoc signed macOS app. No Apple Developer ID is configured, and this build is not notarized.
 
-          Open the disk image and double-click "Open Higgsfield.command". It runs /usr/bin/xattr -cr on Higgsfield.app and then opens the app. Right-click Open on the app does not get past the damaged dialog.
+          Open the disk image, then run these commands in Terminal. macOS blocks Open Higgsfield.command before it can run.
+
+          /usr/bin/ditto "/Volumes/Higgsfield/Higgsfield.app" /Applications/Higgsfield.app
+          /usr/bin/xattr -cr /Applications/Higgsfield.app
+          /usr/bin/open /Applications/Higgsfield.app
           EOF
           )
           if ! gh release view "$TAG" >/dev/null 2>&1; then
