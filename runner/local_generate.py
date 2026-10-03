@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -24,11 +25,84 @@ def emit(phase: str, detail: str) -> None:
     print(json.dumps({"phase": phase, "detail": detail}), flush=True)
 
 
-def snapshot_ready(cache_dir: Path) -> bool:
-    snapshots = cache_dir / REPO_DIR / "snapshots"
-    if not snapshots.is_dir():
+# Files the pinned diffusers 0.32.2 pipeline reads. A snapshot that only has
+# model_index.json still fails with "no file named config.json".
+COMPONENT_FILES = {
+    "feature_extractor": ("preprocessor_config.json",),
+    "scheduler": ("scheduler_config.json",),
+    "text_encoder": ("config.json", "model.safetensors"),
+    "tokenizer": ("tokenizer_config.json", "vocab.json", "merges.txt"),
+    "unet": ("config.json", "diffusion_pytorch_model.safetensors"),
+    "vae": ("config.json", "diffusion_pytorch_model.safetensors"),
+}
+
+
+def file_ok(path: Path) -> bool:
+    try:
+        return path.is_file() and path.stat().st_size > 0
+    except OSError:
         return False
-    return any((child / "model_index.json").is_file() for child in snapshots.iterdir() if child.is_dir())
+
+
+def revision_snapshot(cache_dir: Path) -> Path | None:
+    repo = cache_dir / REPO_DIR
+    ref = repo / "refs" / "main"
+    snapshots = repo / "snapshots"
+    if ref.is_file():
+        revision = ref.read_text(encoding="utf-8").strip()
+        if revision:
+            return snapshots / revision
+    if not snapshots.is_dir():
+        return None
+    children = sorted(path for path in snapshots.iterdir() if path.is_dir())
+    if len(children) == 1:
+        return children[0]
+    return None
+
+
+def snapshot_complete(snapshot: Path) -> bool:
+    if not file_ok(snapshot / "model_index.json"):
+        return False
+    for folder, names in COMPONENT_FILES.items():
+        for name in names:
+            if not file_ok(snapshot / folder / name):
+                return False
+    return True
+
+
+def cache_is_complete(cache_dir: Path) -> bool:
+    snapshot = revision_snapshot(cache_dir)
+    return snapshot is not None and snapshot_complete(snapshot)
+
+
+def discard_repo(cache_dir: Path) -> None:
+    repo = cache_dir / REPO_DIR
+    if repo.exists():
+        shutil.rmtree(repo)
+
+
+def known_caches(app_cache: Path) -> list[Path]:
+    caches = [app_cache]
+    parent = app_cache.parent
+    if parent != app_cache:
+        caches.append(parent)
+    for existing in machine_caches():
+        if existing not in caches:
+            caches.append(existing)
+    return caches
+
+
+def repair_caches(app_cache: Path) -> Path | None:
+    """Drop a missing or partial BK-SDM Tiny snapshot. Keep the first complete copy."""
+    complete: Path | None = None
+    for cache in known_caches(app_cache):
+        if cache_is_complete(cache):
+            if complete is None:
+                complete = cache
+            continue
+        if (cache / REPO_DIR).exists():
+            discard_repo(cache)
+    return complete
 
 
 def machine_caches() -> list[Path]:
@@ -44,16 +118,21 @@ def machine_caches() -> list[Path]:
     return found
 
 
+def pin_hub_cache(cache: Path) -> None:
+    os.environ["HF_HUB_CACHE"] = str(cache)
+    os.environ["HUGGINGFACE_HUB_CACHE"] = str(cache)
+
+
 def choose_cache() -> Path:
     app_cache = Path(os.environ.get("HIGGSFIELD_MODEL_HOME", "")).expanduser()
     if not str(app_cache):
         raise SystemExit("The app model folder is not set.")
-    for existing in machine_caches():
-        if snapshot_ready(existing):
-            return existing
-    if snapshot_ready(app_cache):
-        return app_cache
     app_cache.mkdir(parents=True, exist_ok=True)
+    ready = repair_caches(app_cache)
+    if ready is not None:
+        pin_hub_cache(ready)
+        return ready
+    pin_hub_cache(app_cache)
     emit("download", "Downloading BK-SDM Tiny")
     import inspect
 
@@ -76,41 +155,35 @@ def choose_cache() -> Path:
                     emit("download", f"Downloading BK-SDM Tiny, {percent}%")
             return displayed
 
-    kwargs = {"cache_dir": str(app_cache)}
+    kwargs = {
+        "cache_dir": str(app_cache),
+        "ignore_patterns": ["safety_checker/*", "*.fp16.*", "*.bin", "**/.ipynb_checkpoints/*"],
+    }
     if "tqdm_class" in inspect.signature(snapshot_download).parameters:
         kwargs["tqdm_class"] = Report
     snapshot_download(MODEL_ID, **kwargs)
-    if not snapshot_ready(app_cache):
+    if not cache_is_complete(app_cache):
+        discard_repo(app_cache)
         raise SystemExit("BK-SDM Tiny did not finish downloading.")
     return app_cache
 
 
 def load_pipeline(cache: Path):
+    snapshot = revision_snapshot(cache)
+    if snapshot is None or not snapshot_complete(snapshot):
+        raise SystemExit("BK-SDM Tiny is incomplete.")
     import torch
     from diffusers import StableDiffusionPipeline
 
-    base = {
-        "cache_dir": str(cache),
-        "safety_checker": None,
-        "requires_safety_checker": False,
-        "local_files_only": True,
-    }
-    attempts = [
-        {**base, "variant": "fp16", "dtype": torch.float32},
-        {**base, "dtype": torch.float32},
-        {**base, "variant": "fp16", "torch_dtype": torch.float32},
-        {**base, "torch_dtype": torch.float32},
-    ]
-    last: Exception | None = None
-    pipe = None
-    for kwargs in attempts:
-        try:
-            pipe = StableDiffusionPipeline.from_pretrained(MODEL_ID, **kwargs)
-            break
-        except Exception as error:  # noqa: BLE001 — the next load attempt uses a different argument
-            last = error
-    if pipe is None:
-        raise last or RuntimeError("BK-SDM Tiny could not be loaded.")
+    # requirements-mac.txt pins diffusers 0.32.2. That release accepts torch_dtype.
+    # Passing dtype makes StableDiffusionPipeline warn and ignore the argument.
+    pipe = StableDiffusionPipeline.from_pretrained(
+        str(snapshot),
+        torch_dtype=torch.float32,
+        safety_checker=None,
+        requires_safety_checker=False,
+        local_files_only=True,
+    )
     pipe.set_progress_bar_config(disable=True)
     pipe.enable_attention_slicing()
     return pipe
