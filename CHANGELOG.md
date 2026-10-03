@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3
+
+- Generate deletes an incomplete BK-SDM Tiny snapshot and downloads it again. The pipeline does not start until `config.json` and the weight files are present.
+- The pinned diffusers 0.32.2 load uses `torch_dtype`. That release ignores `dtype`.
+- Open the disk image from Terminal with `/usr/bin/xattr`. macOS blocks `Open Higgsfield.command` before it can run. The app is not notarized.
+
 ## 0.1.2
 
 - The disk image includes the local runtime. Generate downloads BK-SDM Tiny only when it is not already on the machine, then writes the file into `~/Pictures/Higgsfield`.
