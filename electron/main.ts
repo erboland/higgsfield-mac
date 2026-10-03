@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { buildCommand } from '../src/shared/command.ts'
 import type { JobDraft } from '../src/shared/types.ts'
 import { generateLocal } from '../runner/generate.ts'
+import { listLocalModels, modelEnv } from '../src/shared/modelLibrary.ts'
 import { runJob, stopActiveJob } from './runner.ts'
 import { inspectToolchain } from './toolchain.ts'
 import {
@@ -117,9 +118,16 @@ app.whenReady().then(() => {
       summary: built.summary,
     })
   })
+  ipcMain.handle('local:models', () =>
+    listLocalModels({
+      home: app.getPath('home'),
+      modelHome: path.join(app.getPath('userData'), 'models'),
+      env: modelEnv(process.env),
+    }),
+  )
   ipcMain.handle(
     'local:generate',
-    async (event, input: { workspaceId?: string; prompt: string; kind: 'image' | 'video' }) => {
+    async (event, input: { workspaceId?: string; prompt: string; kind: 'image' | 'video'; modelId?: string }) => {
       if (!input || typeof input.prompt !== 'string') throw new Error('Write a prompt before a local run.')
       if (input.kind !== 'image' && input.kind !== 'video') {
         throw new Error('Local generation only writes an image or a video.')
@@ -131,6 +139,7 @@ app.whenReady().then(() => {
       return generateLocal({
         prompt: input.prompt,
         kind: input.kind,
+        modelId: typeof input.modelId === 'string' ? input.modelId : undefined,
         directory: workspace?.directory || defaultOutputDir(),
         homeDir: app.getPath('home'),
         modelHome: path.join(app.getPath('userData'), 'models'),
