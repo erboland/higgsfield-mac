@@ -17,4 +17,7 @@ test('the disk image opener and the README call /usr/bin/xattr -cr', () => {
   assert.match(opener, /\/usr\/bin\/open /)
   assert.match(readme, /not notarized/)
   assert.doesNotMatch(readme, /is notarized/)
+  assert.match(readme, /\/usr\/bin\/xattr -cr \/Applications\/Higgsfield\.app/)
+  assert.match(readme, /\/usr\/bin\/ditto "\/Volumes\/Higgsfield\/Higgsfield\.app" \/Applications\/Higgsfield\.app/)
+  assert.doesNotMatch(readme, /Double-click \*\*Open Higgsfield\.command\*\*/)
 })
