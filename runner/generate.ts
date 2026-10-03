@@ -5,7 +5,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { homeForPictures, usableFolder } from '../src/shared/outputFolder.ts'
-import { LOCAL_MODEL_ID, LOCAL_MODEL_NAME, type LocalKind } from '../src/shared/localRun.ts'
+import { modelEnv, resolveRunnable } from '../src/shared/modelLibrary.ts'
+import type { LocalKind } from '../src/shared/localRun.ts'
 import type { LocalGeneration, LocalProgress } from '../src/shared/types.ts'
 
 function repoRoot(): string {
@@ -40,6 +41,7 @@ export async function generateLocal(input: {
   prompt: string
   kind: LocalKind
   directory: string
+  modelId?: string
   modelHome?: string
   homeDir?: string
   onProgress?: (progress: LocalProgress) => void
@@ -54,6 +56,10 @@ export async function generateLocal(input: {
   await fs.mkdir(outputDir, { recursive: true })
   const modelHome = input.modelHome?.trim() || path.join(home, 'Library', 'Application Support', 'Higgsfield', 'models')
   await fs.mkdir(modelHome, { recursive: true })
+  const runnable = resolveRunnable(input.modelId, { home, modelHome, env: modelEnv(process.env) })
+  if (!runnable) {
+    throw new Error('Choose an open checkpoint. Hosted Higgsfield models have no public weights.')
+  }
   const root = repoRoot()
   const script = [
     path.join(process.resourcesPath ?? '', 'runner', 'local_generate.py'),
@@ -61,7 +67,14 @@ export async function generateLocal(input: {
   ].find((candidate) => candidate && existsSync(candidate))
   if (!script) throw new Error('This build does not include the local runtime.')
   const fileStem = `local-${Date.now()}`
-  const payload = JSON.stringify({ prompt, kind: input.kind, outputDir, fileStem })
+  const payload = JSON.stringify({
+    prompt,
+    kind: input.kind,
+    outputDir,
+    fileStem,
+    modelId: runnable.modelId,
+    checkpointPath: runnable.checkpointPath,
+  })
   const { stdout, stderr, code } = await runPython(pythonBin(), script, modelHome, payload, input.onProgress)
   if (code !== 0) {
     const tail = stderr.trim().split('\n').filter(Boolean).slice(-4).join(' ')
@@ -75,7 +88,7 @@ export async function generateLocal(input: {
     .at(-1)
   if (!line) throw new Error('The local runner did not return a file.')
   const parsed = JSON.parse(line) as { modelId?: string; modelName?: string; kind?: string; filePath?: string }
-  if (parsed.modelId !== LOCAL_MODEL_ID || parsed.modelName !== LOCAL_MODEL_NAME) {
+  if (parsed.modelId !== runnable.modelId || parsed.modelName !== runnable.name) {
     throw new Error('The local runner reported an unexpected model.')
   }
   if (parsed.kind !== input.kind || typeof parsed.filePath !== 'string') {
@@ -122,7 +135,7 @@ function runPython(
     const timer = setTimeout(() => {
       child.kill()
       reject(new Error('Local generation took too long.'))
-    }, 30 * 60_000)
+    }, 60 * 60_000)
     child.stdout.on('data', (chunk: Buffer) => {
       const text = chunk.toString()
       stdout += text
@@ -156,9 +169,13 @@ function readProgress(line: string): LocalProgress | null {
   const trimmed = line.trim()
   if (!trimmed.startsWith('{') || !trimmed.includes('"phase"')) return null
   try {
-    const parsed = JSON.parse(trimmed) as { phase?: string; detail?: string }
+    const parsed = JSON.parse(trimmed) as { phase?: string; detail?: string; percent?: number }
     if ((parsed.phase === 'download' || parsed.phase === 'generate') && parsed.detail) {
-      return { phase: parsed.phase, detail: parsed.detail }
+      const percent =
+        typeof parsed.percent === 'number' && Number.isFinite(parsed.percent)
+          ? Math.max(0, Math.min(100, Math.round(parsed.percent)))
+          : undefined
+      return { phase: parsed.phase, detail: parsed.detail, percent }
     }
   } catch {
     return null

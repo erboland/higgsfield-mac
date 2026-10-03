@@ -4,7 +4,8 @@ import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 
 import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
-import { LOCAL_MODEL_ID, LOCAL_MODEL_NAME, localMediaKind } from '../src/shared/localRun.ts'
+import { LOCAL_MODEL_ID, localMediaKind } from '../src/shared/localRun.ts'
+import { OPEN_MODELS } from '../src/shared/openModels.ts'
 
 test('local media is image or video, and training or audio stays off this runner', () => {
   assert.equal(localMediaKind({ kind: 'image', prompt: 'a cup on a table', skillId: 'higgsfield-generate' }), 'image')
@@ -22,15 +23,24 @@ test('the runner names the open model and not a hosted Higgsfield model', () => 
   const script = path.resolve('runner/local_generate.py')
   const result = spawnSync('python3', [script, '--describe'], { encoding: 'utf8' })
   assert.equal(result.status, 0)
-  const described = JSON.parse(result.stdout) as { modelId: string; modelName: string }
-  assert.equal(described.modelId, LOCAL_MODEL_ID)
-  assert.equal(described.modelName, LOCAL_MODEL_NAME)
-  assert.equal(described.modelId, 'nota-ai/bk-sdm-tiny')
-  assert.doesNotMatch(described.modelName, /soul|kling|veo|seedance/i)
+  const described = JSON.parse(result.stdout) as {
+    defaultModelId: string
+    models: { modelId: string; modelName: string }[]
+  }
+  assert.equal(described.defaultModelId, LOCAL_MODEL_ID)
+  assert.equal(described.defaultModelId, 'runwayml/stable-diffusion-v1-5')
+  for (const model of OPEN_MODELS) {
+    assert.ok(described.models.some((item) => item.modelId === model.id && item.modelName === model.name))
+  }
+  assert.ok(described.models.some((item) => item.modelId === 'nota-ai/bk-sdm-tiny'))
+  const names = described.models.map((item) => item.modelName).join(' ')
+  assert.doesNotMatch(names, /soul|kling|veo|seedance/i)
 })
 
 test('a partial BK-SDM Tiny snapshot is deleted and the pipeline call does not pass dtype', () => {
   const source = readFileSync('runner/local_generate.py', 'utf8')
+  assert.match(source, /allow_patterns/)
+  assert.match(source, /unet\/diffusion_pytorch_model\.safetensors/)
   assert.match(source, /torch_dtype=torch\.float32/)
   assert.doesNotMatch(source, /["']dtype["']\s*:/)
   assert.doesNotMatch(source, /(?<!torch_)dtype=torch\.float32/)
