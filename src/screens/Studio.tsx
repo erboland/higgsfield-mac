@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { RunProgress } from '@/components/RunProgress'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { getApi } from '@/lib/api'
+import { useModelLibrary } from '@/lib/useModelLibrary'
 import {
   aspectRatios,
   marketplaceScopes,
@@ -13,7 +15,6 @@ import {
   websiteTemplates,
 } from '@/shared/catalog.ts'
 import { buildCommand } from '@/shared/command.ts'
-import { LOCAL_MODEL_ID, LOCAL_MODEL_NAME } from '@/shared/localRun.ts'
 import type { JobDraft, LocalGeneration, SavedJob, Workspace } from '@/shared/types.ts'
 
 const selectClass =
@@ -28,8 +29,17 @@ export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: J
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState('')
+  const [percent, setPercent] = useState<number | null>(null)
+  const library = useModelLibrary()
 
-  useEffect(() => api.onLocalProgress((event) => setStatus(event.detail)), [api])
+  useEffect(
+    () =>
+      api.onLocalProgress((event) => {
+        setStatus(event.detail)
+        setPercent(event.percent ?? null)
+      }),
+    [api],
+  )
 
   const built = buildCommand(draft)
   const skill = skills.find((item) => item.id === draft.skillId)
@@ -102,10 +112,11 @@ export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: J
     }
     const kind = model?.modality === 'video' ? 'video' : 'image'
     setBusy(true)
-    setStatus('Generating')
+    setPercent(null)
+    setStatus(library.selected?.installed ? 'Generating' : 'Downloading the selected model')
     setError('')
     try {
-      setLocalResult(await api.generateLocal({ workspaceId, prompt, kind }))
+      setLocalResult(await api.generateLocal({ workspaceId, prompt, kind, modelId: library.modelId }))
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Local generation failed.')
     } finally {
@@ -118,10 +129,16 @@ export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: J
       <section className="space-y-4">
         <article className="rounded-2xl border border-line bg-panel p-4">
           <h2 className="font-serif text-xl">Local model</h2>
-          <Badge className="mt-3 border-accent text-accent">Installed</Badge>
-          <p className="mt-3 text-sm">{LOCAL_MODEL_NAME}</p>
-          <p className="mt-1 break-all text-xs text-muted">{LOCAL_MODEL_ID}</p>
-          <p className="mt-3 text-sm text-muted">Runs on this machine. Generate downloads the weights when they are not already here.</p>
+          <Badge className="mt-3 border-accent text-accent">
+            {library.loading ? 'Checking' : library.selected?.installed ? 'Installed' : 'Not downloaded'}
+          </Badge>
+          <p className="mt-3 text-sm">{library.selected?.name ?? 'Select a checkpoint'}</p>
+          <p className="mt-1 break-all text-xs text-muted">{library.selected?.id}</p>
+          <p className="mt-3 text-sm text-muted">
+            {library.selected?.installed
+              ? 'This checkpoint is on the machine. Generate runs it.'
+              : 'Generate downloads this checkpoint, shows the progress, then runs it.'}
+          </p>
         </article>
 
         <article className="rounded-2xl border border-line bg-panel p-4">
@@ -169,7 +186,7 @@ export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: J
         <article className="rounded-2xl border border-dashed border-line p-4 text-sm text-muted">
           <h2 className="font-serif text-lg text-ink">How a run works</h2>
           <p className="mt-2">
-            Generate uses {LOCAL_MODEL_NAME} only. The picture or clip is written into the output folder.
+            Generate uses the checkpoint selected below. A missing checkpoint is downloaded first. The picture or clip is written into the output folder.
           </p>
         </article>
       </section>
@@ -179,7 +196,7 @@ export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: J
           <p className="text-[11px] tracking-[0.22em] text-accent uppercase">Create</p>
           <h1 className="mt-1 font-serif text-4xl tracking-tight">{skill?.title ?? 'Create'}</h1>
           <p className="mt-2 max-w-xl text-sm text-muted">
-            {skill?.summary} The prompt runs on {LOCAL_MODEL_NAME}.
+            {skill?.summary} The prompt runs on the selected checkpoint.
           </p>
         </header>
 
@@ -248,13 +265,21 @@ export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: J
             </select>
           </label>
 
-          <div className="space-y-1.5">
+          <label className="space-y-1.5">
             <span className="text-xs tracking-[0.16em] text-muted uppercase">Model</span>
-            <p className="text-sm">
-              {LOCAL_MODEL_NAME}
-              <span className="text-muted"> · {LOCAL_MODEL_ID}</span>
-            </p>
-          </div>
+            <select
+              className={selectClass}
+              value={library.modelId}
+              onChange={(event) => library.chooseModel(event.target.value)}
+            >
+              {library.runnable.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.name}
+                  {model.installed ? '' : ' — not downloaded'}
+                </option>
+              ))}
+            </select>
+          </label>
 
           {draft.skillId === 'higgsfield-product-photoshoot' && (
             <label className="space-y-1.5">
@@ -373,7 +398,7 @@ export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: J
             </label>
           ) : null}
 
-          {busy && <p className="text-sm">{status || 'Generating'}</p>}
+          <RunProgress busy={busy} status={status} percent={percent} />
           {error && <p className="text-sm text-danger">{error}</p>}
 
           <div className="flex flex-wrap gap-2">
