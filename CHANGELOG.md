@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4
+
+- The model library lists Stable Diffusion 1.5, BK-SDM Tiny, and checkpoint files already on the machine, including a ComfyUI `models/checkpoints` folder.
+- Generate runs the selected checkpoint. A missing open checkpoint is downloaded with visible progress, then the image or video is written.
+- Soul, Kling, and the other hosted Higgsfield models stay in the library as names only. They have no public weights.
+
 ## 0.1.3
 
 - Generate deletes an incomplete BK-SDM Tiny snapshot and downloads it again. The pipeline does not start until `config.json` and the weight files are present.

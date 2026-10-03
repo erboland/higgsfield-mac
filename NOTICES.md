@@ -21,7 +21,7 @@ The MIT permission notice and the Apache-2.0 license text live in those reposito
 
 Model weights for the hosted generators are not in these repositories and are not distributed here.
 
-Local image and video runs use BK-SDM Tiny (`nota-ai/bk-sdm-tiny`), an open model under the CreativeML OpenRAIL-M license. Copyright remains with its authors. This repository does not vendor those weights. The first local run downloads them into `runner/.cache`.
+Local image and video runs can use Stable Diffusion 1.5 (`runwayml/stable-diffusion-v1-5`) or BK-SDM Tiny (`nota-ai/bk-sdm-tiny`). Both are open checkpoints under the CreativeML OpenRAIL-M license. Copyright remains with their authors. This repository does not vendor those weights. Generate downloads a missing checkpoint into the app model folder. Checkpoint files already stored in a ComfyUI `models/checkpoints` folder can be selected. Soul, Kling, and the other hosted Higgsfield models have no public weights and are not downloaded.
 
 ## Upstream desktop shell
 
