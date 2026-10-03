@@ -2,9 +2,9 @@
 
 Open source Mac app for [Higgsfield](https://higgsfield.ai) prompts and templates. Image and video generation runs on this machine.
 
-The window is a black studio with a lime accent. Prompts and templates are the library. Create runs the installed local model and saves the file in a folder you pick with the system folder dialog.
+The window is a black studio with a lime accent. Prompts and templates are the library. Create runs the checkpoint you select and saves the file in a folder you pick with the system folder dialog.
 
-Hosted Higgsfield models have no public weights, so they are not listed and this app does not claim they ran.
+Hosted Higgsfield models have no public weights. The model library names them and does not offer a download.
 
 ## Screenshots
 
@@ -14,14 +14,16 @@ Hosted Higgsfield models have no public weights, so they are not listed and this
 
 ![Create, with the output folder and the local model](docs/screenshots/create.jpg)
 
-## Local model
+## Local models
 
-Local image and video use **BK-SDM Tiny** (`nota-ai/bk-sdm-tiny`), an open model under the CreativeML OpenRAIL-M license. See [NOTICES.md](NOTICES.md).
+Generate uses the checkpoint selected in Models or Create. See [NOTICES.md](NOTICES.md).
 
-- Image briefs save a PNG.
-- Video briefs save an MP4 made of four frames from that same model, plus a poster frame.
-- The disk image includes the runtime. Generate is the only step.
-- If BK-SDM Tiny is already on the machine, Generate runs it. If it is missing, Generate downloads it into the app and then runs it.
+- **Stable Diffusion 1.5** (`runwayml/stable-diffusion-v1-5`) is the stronger open checkpoint.
+- **BK-SDM Tiny** (`nota-ai/bk-sdm-tiny`) is the smaller, less detailed one.
+- Checkpoints already on the machine are listed too, including a ComfyUI `models/checkpoints` folder when one exists.
+- Soul, Kling, Veo, Seedance, and the other hosted models have no public weights. They cannot be downloaded.
+- If the selected checkpoint is installed, Generate runs it. If it is missing, Generate downloads it, shows that progress, then runs it.
+- Image briefs save a PNG. Video briefs save an MP4 made of four frames, plus a poster frame.
 - Files are saved in `~/Pictures/Higgsfield`. Choose folder can point somewhere else. The app never uses `/`.
 
 Template cards ship with a demo generated from each template prompt. Those files are packed into the app next to the window.
@@ -30,7 +32,7 @@ Template cards ship with a demo generated from each template prompt. Those files
 
 The current disk image is on [GitHub Releases](https://github.com/erboland/higgsfield-mac/releases/latest):
 
-[Higgsfield-0.1.3-arm64.dmg](https://github.com/erboland/higgsfield-mac/releases/download/v0.1.3/Higgsfield-0.1.3-arm64.dmg)
+[Higgsfield-0.1.4-arm64.dmg](https://github.com/erboland/higgsfield-mac/releases/download/v0.1.4/Higgsfield-0.1.4-arm64.dmg)
 
 There is no Apple Developer ID. The app is ad-hoc signed, and it is not notarized. A browser attaches a quarantine flag. macOS then says “Higgsfield” is damaged, and right-click Open does not get past that dialog. The disk image also contains `Open Higgsfield.command`. macOS blocks that file (“Open Higgsfield.command” Not Opened. Apple could not verify it is free of malware), so the file never runs and never clears quarantine.
 
@@ -44,7 +46,7 @@ Open the disk image so the volume `Higgsfield` is mounted. The volume is read-on
 
 If `/Applications` is not writable, use `$HOME/Applications` in all three commands.
 
-The disk image is created with `hdiutil` and checked with `hdiutil verify` before it is published. If an older download says the disk image is corrupted, or says the app is damaged, download 0.1.3 again and discard the older file.
+The disk image is created with `hdiutil` and checked with `hdiutil verify` before it is published. If an older download says the disk image is corrupted, or says the app is damaged, download 0.1.4 again and discard the older file.
 
 ## Develop
 
