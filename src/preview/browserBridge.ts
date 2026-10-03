@@ -92,6 +92,11 @@ export function createBrowserBridge(): HiggsfieldApi {
       save(memory)
       return job
     },
+    async listLocalModels() {
+      const response = await fetch('/api/local-models')
+      if (!response.ok) throw new Error('Could not read the model library.')
+      return response.json() as ReturnType<HiggsfieldApi['listLocalModels']>
+    },
     async generateLocal(input) {
       const workspace = load().workspaces.find((item) => item.id === input.workspaceId)
       if (!workspace) throw new Error('Choose a workspace.')
@@ -101,6 +106,7 @@ export function createBrowserBridge(): HiggsfieldApi {
         body: JSON.stringify({
           prompt: input.prompt,
           kind: input.kind,
+          modelId: input.modelId,
           directory: workspace.directory,
         }),
       })

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { LocalRunPanel, useLocalGeneration } from '@/components/LocalRunPanel'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { LOCAL_MODEL_NAME, localMediaKind } from '@/shared/localRun.ts'
+import { localMediaKind } from '@/shared/localRun.ts'
 import { promptKinds, prompts, type PromptEntry, type PromptKind } from '@/shared/starters.ts'
 
 const kindLabel: Record<PromptKind, string> = {
@@ -38,7 +38,7 @@ export function Prompts({ onUse }: { onUse: (entry: PromptEntry) => void }) {
           <p className="text-[11px] tracking-[0.22em] text-accent uppercase">Library</p>
           <h1 className="mt-1 font-serif text-4xl tracking-tight">Prompts</h1>
           <p className="mt-2 max-w-xl text-sm text-muted">
-            Starter briefs. Generate runs the prompt on {LOCAL_MODEL_NAME} and saves the file in the output folder.
+            Starter briefs. Generate runs the prompt on the selected checkpoint and saves the file in the output folder.
           </p>
         </div>
         <Input
@@ -58,6 +58,8 @@ export function Prompts({ onUse }: { onUse: (entry: PromptEntry) => void }) {
         error={local.error}
         busy={local.busy}
         status={local.status}
+        percent={local.percent}
+        library={local.library}
       />
 
       <div className="mt-5 flex flex-wrap gap-2">
@@ -81,7 +83,7 @@ export function Prompts({ onUse }: { onUse: (entry: PromptEntry) => void }) {
                 <article className="flex h-full flex-col rounded-2xl border border-line bg-panel p-4">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-[11px] tracking-[0.18em] text-accent uppercase">{kindLabel[entry.kind]}</span>
-                    <span className="truncate text-xs text-muted">{LOCAL_MODEL_NAME}</span>
+                    <span className="truncate text-xs text-muted">{local.library.selected?.name ?? 'Selected model'}</span>
                   </div>
                   <h2 className="mt-3 font-serif text-xl tracking-tight">{entry.title}</h2>
                   <p className="mt-2 flex-1 text-sm leading-relaxed text-white/70">{entry.prompt}</p>
