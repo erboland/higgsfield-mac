@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { skills } from '@/shared/catalog.ts'
 import { demoAsset } from '@/shared/demoAsset.ts'
-import { LOCAL_MODEL_NAME } from '@/shared/localRun.ts'
 import {
   templateCategories,
   templates,
@@ -62,7 +61,7 @@ export function Templates({ onStart }: { onStart: (entry: TemplateEntry) => void
 
       <div className="min-w-0 flex-1 px-5 py-6">
         <p className="max-w-xl text-sm text-muted">
-          Starting points rendered with {LOCAL_MODEL_NAME}. Generate writes a new image or video into the output folder.
+          Starting points. Generate writes a new image or video with the selected checkpoint into the output folder.
         </p>
         <LocalRunPanel
           workspaces={local.workspaces}
@@ -73,6 +72,8 @@ export function Templates({ onStart }: { onStart: (entry: TemplateEntry) => void
           error={local.error}
           busy={local.busy}
           status={local.status}
+          percent={local.percent}
+          library={local.library}
         />
         {visible.length === 0 ? (
           <p className="mt-8 text-sm text-muted">No templates match that search.</p>
