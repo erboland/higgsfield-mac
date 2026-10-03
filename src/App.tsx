@@ -51,8 +51,8 @@ export function App() {
     select('create')
   }
 
-  function useModel(modelId: string) {
-    openCreate({ ...emptyDraft('higgsfield-generate'), modelId })
+  function useModel() {
+    select('create')
   }
 
   function usePrompt(entry: PromptEntry) {

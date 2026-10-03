@@ -4,7 +4,9 @@ import { fileURLToPath } from 'node:url'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import electron from 'vite-plugin-electron/simple'
+import os from 'node:os'
 import { generateLocal } from './runner/generate.ts'
+import { listLocalModels, modelEnv } from './src/shared/modelLibrary.ts'
 
 const repoRoot = path.dirname(fileURLToPath(import.meta.url))
 process.env.HIGGSFIELD_ROOT = repoRoot
@@ -13,6 +15,18 @@ function localGenerateApi(): Plugin {
   return {
     name: 'higgsfield-local-generate',
     configureServer(server) {
+      server.middlewares.use('/api/local-models', (_req, res) => {
+        res.setHeader('content-type', 'application/json')
+        res.end(
+          JSON.stringify(
+            listLocalModels({
+              home: os.homedir(),
+              modelHome: path.join(os.homedir(), 'Library', 'Application Support', 'higgsfield-local', 'models'),
+              env: modelEnv(process.env),
+            }),
+          ),
+        )
+      })
       server.middlewares.use('/api/local-generate', (req, res) => {
         if (req.method !== 'POST') {
           res.statusCode = 405
@@ -28,6 +42,7 @@ function localGenerateApi(): Plugin {
                 prompt?: string
                 kind?: 'image' | 'video'
                 directory?: string
+                modelId?: string
               }
               if (!body.directory || (body.kind !== 'image' && body.kind !== 'video') || typeof body.prompt !== 'string') {
                 throw new Error('A local run needs a folder, a prompt, and an image or video.')
@@ -35,6 +50,7 @@ function localGenerateApi(): Plugin {
               const result = await generateLocal({
                 prompt: body.prompt,
                 kind: body.kind,
+                modelId: body.modelId,
                 directory: body.directory,
               })
               res.setHeader('content-type', 'application/json')
