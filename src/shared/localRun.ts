@@ -1,7 +1,8 @@
+import { DEFAULT_LOCAL_MODEL_ID, openModel } from './openModels.ts'
 import type { SkillId } from './types.ts'
 
-export const LOCAL_MODEL_ID = 'nota-ai/bk-sdm-tiny'
-export const LOCAL_MODEL_NAME = 'BK-SDM Tiny'
+export const LOCAL_MODEL_ID = DEFAULT_LOCAL_MODEL_ID
+export const LOCAL_MODEL_NAME = openModel(DEFAULT_LOCAL_MODEL_ID)?.name ?? 'Stable Diffusion 1.5'
 
 export type LocalKind = 'image' | 'video'
 
