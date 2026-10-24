@@ -33,7 +33,7 @@ execFileSync(python, ['-m', 'pip', 'install', '--no-cache-dir', '-r', 'runner/re
 })
 execFileSync(
   python,
-  ['-c', 'import torch, diffusers, PIL, av, huggingface_hub, numpy'],
+  ['-c', 'import torch, diffusers, PIL, av, huggingface_hub, numpy, peft'],
   { stdio: 'inherit' },
 )
 for (const name of ['test', 'ensurepip', 'idlelib', 'turtledemo']) {
