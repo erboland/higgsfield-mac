@@ -1,4 +1,4 @@
-import type { AppInfo, HiggsfieldApi, JobDraft, JobEvent, SavedJob, ToolchainStatus, Workspace } from '../shared/types.ts'
+import type { AppInfo, HiggsfieldApi, JobDraft, JobEvent, LocalGeneration, LocalProgress, SavedJob, ToolchainStatus, Workspace } from '../shared/types.ts'
 
 const KEY = 'higgsfield-local-preview'
 
@@ -19,6 +19,7 @@ function save(memory: Memory) {
 }
 
 const listeners = new Set<(event: JobEvent) => void>()
+const progressListeners = new Set<(event: LocalProgress) => void>()
 
 export function createBrowserBridge(): HiggsfieldApi {
   return {
@@ -92,14 +93,14 @@ export function createBrowserBridge(): HiggsfieldApi {
       save(memory)
       return job
     },
-    async listLocalModels() {
-      const response = await fetch('/api/local-models')
-      if (!response.ok) throw new Error('Could not read the model library.')
-      return response.json() as ReturnType<HiggsfieldApi['listLocalModels']>
+    async listLibrary() {
+      const response = await fetch('/api/library')
+      if (!response.ok) throw new Error('The model library could not be read.')
+      return response.json()
     },
     async generateLocal(input) {
       const workspace = load().workspaces.find((item) => item.id === input.workspaceId)
-      if (!workspace) throw new Error('Choose a workspace.')
+      const directory = workspace?.directory || '/tmp/higgsfield-studio/Pictures/Higgsfield'
       const response = await fetch('/api/local-generate', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -107,16 +108,52 @@ export function createBrowserBridge(): HiggsfieldApi {
           prompt: input.prompt,
           kind: input.kind,
           modelId: input.modelId,
-          directory: workspace.directory,
+          aspectRatio: input.aspectRatio,
+          loraId: input.loraId,
+          vaeId: input.vaeId,
+          embeddingId: input.embeddingId,
+          directory,
         }),
       })
-      const body = (await response.json().catch(() => null)) as { error?: string } | null
-      if (!response.ok) throw new Error(body?.error || 'Local generation failed.')
-      return body as Awaited<ReturnType<HiggsfieldApi['generateLocal']>>
+      if (!response.ok || !response.body) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null
+        throw new Error(body?.error || 'Local generation failed.')
+      }
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let pending = ''
+      let result: LocalGeneration | null = null
+      const take = (line: string) => {
+        if (!line.trim()) return
+        const parsed = JSON.parse(line) as {
+          type?: string
+          progress?: LocalProgress
+          result?: LocalGeneration
+          error?: string
+        }
+        if (parsed.type === 'progress' && parsed.progress) {
+          for (const listener of progressListeners) listener(parsed.progress)
+        }
+        if (parsed.type === 'error') throw new Error(parsed.error || 'Local generation failed.')
+        if (parsed.type === 'result' && parsed.result) result = parsed.result
+      }
+      while (true) {
+        const chunk = await reader.read()
+        if (chunk.done) break
+        pending += decoder.decode(chunk.value, { stream: true })
+        const lines = pending.split('\n')
+        pending = lines.pop() ?? ''
+        for (const line of lines) take(line)
+      }
+      if (pending.trim()) take(pending)
+      if (!result) throw new Error('Local generation failed.')
+      return result
     },
-    onLocalProgress() {
-      return () => {}
+    onLocalProgress(listener) {
+      progressListeners.add(listener)
+      return () => progressListeners.delete(listener)
     },
+    async openResult() {},
     async runJob() {
       const runId = crypto.randomUUID()
       queueMicrotask(() => {
