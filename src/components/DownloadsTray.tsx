@@ -15,12 +15,12 @@ function formatBytes(value?: number): string {
 }
 
 function formatSpeed(value?: number): string {
-  if (!value) return '\u2014'
+  if (!value) return '—'
   return `${formatBytes(value)}/s`
 }
 
 function formatEta(value?: number): string {
-  if (value === undefined || value < 0) return '\u2014'
+  if (value === undefined || value < 0) return '—'
   if (value < 60) return `${value}s left`
   return `${Math.ceil(value / 60)} min left`
 }
@@ -85,14 +85,14 @@ export function DownloadsTray({
                 <div className="h-full bg-accent" style={{ width: `${Math.max(0, Math.min(100, row.percent))}%` }} />
               </div>
               <p className="mt-2 text-xs text-muted">
-                {formatBytes(row.bytes)} / {row.total ? formatBytes(row.total) : '\u2014'} \u00b7 {formatSpeed(row.speed)} \u00b7 {formatEta(row.eta)}
+                {formatBytes(row.bytes)} / {row.total ? formatBytes(row.total) : '—'} · {formatSpeed(row.speed)} · {formatEta(row.eta)}
               </p>
             </button>
           ))}
         </div>
         <div className="mt-4 flex items-center justify-between text-xs text-muted">
           <span>
-            {active} active \u00b7 {completed} completed
+            {active} active · {completed} completed
           </span>
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" disabled={completed === 0} onClick={onClearFinished}>
