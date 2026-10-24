@@ -20,7 +20,7 @@ npm run dev
 - Open an issue or a draft pull request before a large change.
 - Keep the product name Higgsfield. Do not add another product's source, names, or logos to the interface.
 - Hosted Higgsfield models stay on the official CLI, behind the account confirmation. Do not claim those weights ran locally.
-- Local generation stays in `runner/local_generate.py`. Name the open model that actually ran.
+- Local generation stays in `runner/studio_generate.py`. Name the open checkpoint that actually ran. Do not list Soul, Kling, Veo, or Seedance as downloads.
 - Run `npm test` and `npm run typecheck` before you ask for review.
 - Do not commit `runner/.venv`, `runner/.cache`, `node_modules`, or model weights.
 

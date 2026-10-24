@@ -21,7 +21,9 @@ The MIT permission notice and the Apache-2.0 license text live in those reposito
 
 Model weights for the hosted generators are not in these repositories and are not distributed here.
 
-Local image and video runs can use Stable Diffusion 1.5 (`runwayml/stable-diffusion-v1-5`) or BK-SDM Tiny (`nota-ai/bk-sdm-tiny`). Both are open checkpoints under the CreativeML OpenRAIL-M license. Copyright remains with their authors. This repository does not vendor those weights. Generate downloads a missing checkpoint into the app model folder. Checkpoint files already stored in a ComfyUI `models/checkpoints` folder can be selected. Soul, Kling, and the other hosted Higgsfield models have no public weights and are not downloaded.
+Local stills use SDXL Base (`stabilityai/stable-diffusion-xl-base-1.0`), SD Turbo (`stabilityai/sd-turbo`), and SDXL Turbo (`stabilityai/sdxl-turbo`). Copyright remains with Stability AI. SDXL Base is the full checkpoint. The turbo files are distilled. The weights are not vendored. Generate downloads a missing open checkpoint into the app model folder. A `.safetensors` or `.ckpt` you already have can be selected from the local model folders.
+
+Model files are identified with [REA](https://github.com/morluto/rea) (`rea-agents`, MIT). This repository does not vendor that source. The app shells out to `rea inspect-model-artifact`. REA does not run inference.
 
 ## Upstream desktop shell
 

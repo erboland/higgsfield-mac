@@ -11,7 +11,7 @@ const api: HiggsfieldApi = {
   listJobs: (workspaceId) => ipcRenderer.invoke('jobs:list', workspaceId),
   saveJob: (workspaceId, draft) => ipcRenderer.invoke('jobs:save', workspaceId, draft),
   runJob: (workspaceId, draft) => ipcRenderer.invoke('jobs:run', workspaceId, draft),
-  listLocalModels: () => ipcRenderer.invoke('local:models'),
+  listLibrary: () => ipcRenderer.invoke('library:list'),
   generateLocal: (input) => ipcRenderer.invoke('local:generate', input),
   onLocalProgress: (listener) => {
     const wrapped = (_event: unknown, payload: LocalProgress) => listener(payload)
@@ -23,6 +23,7 @@ const api: HiggsfieldApi = {
     ipcRenderer.on('job-event', wrapped)
     return () => ipcRenderer.off('job-event', wrapped)
   },
+  openResult: (filePath) => ipcRenderer.invoke('shell:reveal', filePath),
   openExternal: (url) => ipcRenderer.invoke('shell:open', url),
 }
 

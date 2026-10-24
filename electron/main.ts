@@ -4,8 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildCommand } from '../src/shared/command.ts'
 import type { JobDraft } from '../src/shared/types.ts'
-import { generateLocal } from '../runner/generate.ts'
-import { listLocalModels, modelEnv } from '../src/shared/modelLibrary.ts'
+import { generateLocal, listLibrary } from '../runner/generate.ts'
 import { runJob, stopActiveJob } from './runner.ts'
 import { inspectToolchain } from './toolchain.ts'
 import {
@@ -93,6 +92,7 @@ app.whenReady().then(() => {
     return new Response(fs.readFileSync(file), { headers: { 'content-type': demoType(name) } })
   })
   ipcMain.handle('app:info', () => ({ platform: process.platform, bridge: 'desktop' as const }))
+  ipcMain.handle('library:list', () => listLibrary(path.join(app.getPath('userData'), 'models')))
   ipcMain.handle('toolchain:get', () => inspectToolchain())
   ipcMain.handle('workspaces:list', () => listWorkspaces())
   ipcMain.handle('workspaces:create', (_event, input: { name: string; directory: string }) => createWorkspace(input))
@@ -118,19 +118,24 @@ app.whenReady().then(() => {
       summary: built.summary,
     })
   })
-  ipcMain.handle('local:models', () =>
-    listLocalModels({
-      home: app.getPath('home'),
-      modelHome: path.join(app.getPath('userData'), 'models'),
-      env: modelEnv(process.env),
-    }),
-  )
   ipcMain.handle(
     'local:generate',
-    async (event, input: { workspaceId?: string; prompt: string; kind: 'image' | 'video'; modelId?: string }) => {
-      if (!input || typeof input.prompt !== 'string') throw new Error('Write a prompt before a local run.')
+    async (
+      event,
+      input: {
+        workspaceId?: string
+        prompt: string
+        kind: 'image' | 'video'
+        modelId?: string
+        aspectRatio?: string
+        loraId?: string
+        vaeId?: string
+        embeddingId?: string
+      },
+    ) => {
+      if (!input || typeof input.prompt !== 'string') throw new Error('Write a prompt before Generate.')
       if (input.kind !== 'image' && input.kind !== 'video') {
-        throw new Error('Local generation only writes an image or a video.')
+        throw new Error('Generate writes an image or a local clip.')
       }
       const workspace =
         typeof input.workspaceId === 'string' && input.workspaceId
@@ -139,7 +144,11 @@ app.whenReady().then(() => {
       return generateLocal({
         prompt: input.prompt,
         kind: input.kind,
-        modelId: typeof input.modelId === 'string' ? input.modelId : undefined,
+        modelId: input.modelId,
+        aspectRatio: input.aspectRatio,
+        loraId: input.loraId,
+        vaeId: input.vaeId,
+        embeddingId: input.embeddingId,
         directory: workspace?.directory || defaultOutputDir(),
         homeDir: app.getPath('home'),
         modelHome: path.join(app.getPath('userData'), 'models'),
@@ -152,6 +161,11 @@ app.whenReady().then(() => {
   ipcMain.handle('jobs:run', (event, workspaceId: string, draft: JobDraft) => {
     if (!isDraft(draft)) throw new Error('Incomplete job.')
     return runJob(event.sender, workspaceId, draft)
+  })
+  ipcMain.handle('shell:reveal', (_event, filePath: string) => {
+    if (typeof filePath !== 'string' || !filePath || filePath === path.parse(filePath).root) return
+    if (!fs.existsSync(filePath)) return
+    shell.showItemInFolder(filePath)
   })
   ipcMain.handle('shell:open', (_event, url: string) => {
     if (typeof url !== 'string' || !url.startsWith('https://')) return

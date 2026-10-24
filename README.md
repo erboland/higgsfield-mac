@@ -2,9 +2,9 @@
 
 Open source Mac app for [Higgsfield](https://higgsfield.ai) prompts and templates. Image and video generation runs on this machine.
 
-The window is a black studio with a lime accent. Prompts and templates are the library. Create runs the checkpoint you select and saves the file in a folder you pick with the system folder dialog.
+The window is a black studio with a lime accent. First open asks for a starter template. Create takes a prompt and an open checkpoint, shows download progress, and saves the file in `~/Pictures/Higgsfield`.
 
-Hosted Higgsfield models have no public weights. The model library names them and does not offer a download.
+[REA](https://github.com/morluto/rea) (`rea-agents`) inspects local safetensors headers. It does not load weights or run the picture. Hosted Higgsfield names — Soul, Kling, Veo, Seedance, Genjutsu — stay in the library and are not downloads.
 
 ## Screenshots
 
@@ -14,25 +14,21 @@ Hosted Higgsfield models have no public weights. The model library names them an
 
 ![Create, with the output folder and the local model](docs/screenshots/create.jpg)
 
-## Local models
+## Local model
 
-Generate uses the checkpoint selected in Models or Create. See [NOTICES.md](NOTICES.md).
+Local stills use an open checkpoint in the model folders. **SDXL Base** (`stabilityai/stable-diffusion-xl-base-1.0`, `sd_xl_base_1.0.safetensors`) is the full checkpoint. **SD Turbo** and **SDXL Turbo** are distilled fast models, not the quality checkpoint. See [NOTICES.md](NOTICES.md). They are not Soul, Kling, Veo, Seedance, or Genjutsu.
 
-- **Stable Diffusion 1.5** (`runwayml/stable-diffusion-v1-5`) is the stronger open checkpoint.
-- **BK-SDM Tiny** (`nota-ai/bk-sdm-tiny`) is the smaller, less detailed one.
-- Checkpoints already on the machine are listed too, including a ComfyUI `models/checkpoints` folder when one exists.
-- Soul, Kling, Veo, Seedance, and the other hosted models have no public weights. They cannot be downloaded.
-- If the selected checkpoint is installed, Generate runs it. If it is missing, Generate downloads it, shows that progress, then runs it.
-- Image briefs save a PNG. Video briefs save an MP4 made of four frames, plus a poster frame.
-- Files are saved in `~/Pictures/Higgsfield`. Choose folder can point somewhere else. The app never uses `/`.
+- Generate saves a PNG from the checkpoint you select. A `.safetensors` or `.ckpt` already in `checkpoints`, `diffusion_models`, or the other local folders can be selected too.
+- A local clip saves an MP4 made of stills from that same checkpoint. The file is labeled as that, not as a hosted video model.
+- If the selected open checkpoint is missing, Generate writes a staged `.part`, shows percent, transferred size, speed, and time remaining in Downloads, then commits the file.
+- REA inspects the unet safetensors header after the file is on disk. If `rea` is not installed, inspection is unavailable and the app does not invent tensor metadata.
+- Files are saved in `~/Pictures/Higgsfield`. The app never uses `/`.
 
 Template cards ship with a demo generated from each template prompt. Those files are packed into the app next to the window.
 
 ## Install the app
 
-The current disk image is on [GitHub Releases](https://github.com/erboland/higgsfield-mac/releases/latest):
-
-[Higgsfield-0.1.4-arm64.dmg](https://github.com/erboland/higgsfield-mac/releases/download/v0.1.4/Higgsfield-0.1.4-arm64.dmg)
+A disk image for this studio is published only after Generate writes a real image and GitHub Actions `hdiutil verify` passes. Older images, including 0.1.4, are the previous runner.
 
 There is no Apple Developer ID. The app is ad-hoc signed, and it is not notarized. A browser attaches a quarantine flag. macOS then says “Higgsfield” is damaged, and right-click Open does not get past that dialog. The disk image also contains `Open Higgsfield.command`. macOS blocks that file (“Open Higgsfield.command” Not Opened. Apple could not verify it is free of malware), so the file never runs and never clears quarantine.
 
@@ -46,7 +42,7 @@ Open the disk image so the volume `Higgsfield` is mounted. The volume is read-on
 
 If `/Applications` is not writable, use `$HOME/Applications` in all three commands.
 
-The disk image is created with `hdiutil` and checked with `hdiutil verify` before it is published. If an older download says the disk image is corrupted, or says the app is damaged, download 0.1.4 again and discard the older file.
+The disk image is created with `hdiutil` and checked with `hdiutil verify` before it is published. The app is ad-hoc signed and not notarized.
 
 ## Develop
 
@@ -82,9 +78,8 @@ npm run dist:mac
 
 ## What you can do
 
-- Browse prompts and templates. Each template card shows a demo made with BK-SDM Tiny.
-- Choose an output folder with the folder dialog.
-- Generate an image or a short video on this machine. The result is shown in the window and saved in the folder.
+- Pick a starter, then a template. Hosted apps stay labeled as having no public weights.
+- Generate a still or a local clip on this machine. The result is shown in the window and saved in Pictures/Higgsfield.
 
 ## License
 

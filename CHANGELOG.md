@@ -1,10 +1,17 @@
 # Changelog
 
-## 0.1.4
+## 0.2.1
 
-- The model library lists Stable Diffusion 1.5, BK-SDM Tiny, and checkpoint files already on the machine, including a ComfyUI `models/checkpoints` folder.
-- Generate runs the selected checkpoint. A missing open checkpoint is downloaded with visible progress, then the image or video is written.
-- Soul, Kling, and the other hosted Higgsfield models stay in the library as names only. They have no public weights.
+- SDXL Base (`sd_xl_base_1.0.safetensors`) is the full checkpoint. Generate downloads it through the Downloads tray, then writes a still at 20 steps and guidance 5. SD Turbo and SDXL Turbo stay as distilled fast models.
+- `.safetensors` and `.ckpt` files in `checkpoints` and `diffusion_models` are what Generate runs. LoRAs, VAEs, and embeddings in those folders attach to the selected checkpoint.
+- The packaged app includes `runner/studio_generate.py`.
+
+## 0.2.0
+
+- The studio is no longer the BK-SDM Tiny runner. First open picks a starter. Create takes a prompt, an open checkpoint, and a Downloads tray with percent, size, speed, and time remaining.
+- SDXL Base (`sd_xl_base_1.0.safetensors`) is the full checkpoint. SD Turbo and SDXL Turbo stay available as distilled fast models. Generate also runs a `.safetensors` or `.ckpt` already in the local model folders. A missing file downloads as `.part`, then commits. Soul, Kling, Veo, Seedance, and Genjutsu stay visible and are not downloads.
+- REA (`rea-agents` `inspect-model-artifact`) reads the local safetensors header. Missing REA does not invent an inspection.
+- Public studio presets (Editorial still, Lifestyle at home, Product hero shot, UGC review) fill the prompt and aspect. Generate resolves the checkpoint before it draws. Hosted API catalog ids stay disabled.
 
 ## 0.1.3
 
