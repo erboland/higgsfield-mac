@@ -5,8 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { homeForPictures, usableFolder } from '../src/shared/outputFolder.ts'
-import { modelEnv, resolveRunnable } from '../src/shared/modelLibrary.ts'
-import type { LocalKind } from '../src/shared/localRun.ts'
+import { OPEN_MODEL_ID, canAttach, canRunModel, type AddonFolder, type LibraryReport, type StudioKind } from '../src/shared/studioModels.ts'
 import type { LocalGeneration, LocalProgress } from '../src/shared/types.ts'
 
 function repoRoot(): string {
@@ -39,42 +38,43 @@ export function localOutputDir(directory: string, home = os.homedir()): string {
 
 export async function generateLocal(input: {
   prompt: string
-  kind: LocalKind
+  kind: StudioKind
   directory: string
   modelId?: string
+  aspectRatio?: string
+  loraId?: string
+  vaeId?: string
+  embeddingId?: string
   modelHome?: string
   homeDir?: string
   onProgress?: (progress: LocalProgress) => void
 }): Promise<LocalGeneration> {
   const prompt = input.prompt.trim()
-  if (!prompt) throw new Error('Write a prompt before a local run.')
+  const modelId = input.modelId?.trim() || OPEN_MODEL_ID
+  if (!prompt) throw new Error('Write a prompt before Generate.')
   if (input.kind !== 'image' && input.kind !== 'video') {
-    throw new Error('Local generation only writes an image or a video.')
+    throw new Error('Generate writes an image or a local clip.')
+  }
+  if (!canRunModel(modelId)) {
+    throw new Error(`${modelId} has no public weights in this app.`)
   }
   const home = homeForPictures([input.homeDir ?? '', os.homedir()])
   const outputDir = localOutputDir(input.directory, home)
   await fs.mkdir(outputDir, { recursive: true })
   const modelHome = input.modelHome?.trim() || path.join(home, 'Library', 'Application Support', 'Higgsfield', 'models')
   await fs.mkdir(modelHome, { recursive: true })
-  const runnable = resolveRunnable(input.modelId, { home, modelHome, env: modelEnv(process.env) })
-  if (!runnable) {
-    throw new Error('Choose an open checkpoint. Hosted Higgsfield models have no public weights.')
-  }
   const root = repoRoot()
   const script = [
-    path.join(process.resourcesPath ?? '', 'runner', 'local_generate.py'),
-    path.join(root, 'runner', 'local_generate.py'),
+    path.join(process.resourcesPath ?? '', 'runner', 'studio_generate.py'),
+    path.join(root, 'runner', 'studio_generate.py'),
   ].find((candidate) => candidate && existsSync(candidate))
   if (!script) throw new Error('This build does not include the local runtime.')
-  const fileStem = `local-${Date.now()}`
-  const payload = JSON.stringify({
-    prompt,
-    kind: input.kind,
-    outputDir,
-    fileStem,
-    modelId: runnable.modelId,
-    checkpointPath: runnable.checkpointPath,
-  })
+  const fileStem = `studio-${Date.now()}`
+  const aspectRatio = input.aspectRatio?.trim() || '1:1'
+  const loraId = addonId(input.loraId, 'loras')
+  const vaeId = addonId(input.vaeId, 'vae')
+  const embeddingId = addonId(input.embeddingId, 'embeddings')
+  const payload = JSON.stringify({ prompt, kind: input.kind, outputDir, fileStem, modelId, aspectRatio, loraId, vaeId, embeddingId })
   const { stdout, stderr, code } = await runPython(pythonBin(), script, modelHome, payload, input.onProgress)
   if (code !== 0) {
     const tail = stderr.trim().split('\n').filter(Boolean).slice(-4).join(' ')
@@ -87,16 +87,16 @@ export async function generateLocal(input: {
     .filter((entry) => entry.startsWith('{') && entry.includes('"modelId"'))
     .at(-1)
   if (!line) throw new Error('The local runner did not return a file.')
-  const parsed = JSON.parse(line) as { modelId?: string; modelName?: string; kind?: string; filePath?: string }
-  if (parsed.modelId !== runnable.modelId || parsed.modelName !== runnable.name) {
-    throw new Error('The local runner reported an unexpected model.')
+  const parsed = JSON.parse(line) as { modelId?: string; modelName?: string; kind?: string; filePath?: string; note?: string; checkpoint?: string }
+  if (!parsed.modelId || !canRunModel(parsed.modelId) || parsed.modelId !== modelId || typeof parsed.modelName !== 'string') {
+    throw new Error('The studio runner reported an unexpected model.')
   }
   if (parsed.kind !== input.kind || typeof parsed.filePath !== 'string') {
-    throw new Error('The local runner did not return a file.')
+    throw new Error('The studio runner did not return a file.')
   }
   const filePath = path.resolve(parsed.filePath)
   const relative = path.relative(outputDir, filePath)
-  if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('The local runner wrote outside the output folder.')
+  if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('The studio runner wrote outside the output folder.')
   const bytes = await fs.readFile(filePath)
   return {
     modelId: parsed.modelId,
@@ -105,7 +105,39 @@ export async function generateLocal(input: {
     filePath,
     mediaType: input.kind === 'video' ? 'video/mp4' : 'image/png',
     base64: bytes.toString('base64'),
+    note: parsed.note,
+    checkpoint: parsed.checkpoint,
   }
+}
+
+export async function listLibrary(modelHome: string): Promise<LibraryReport> {
+  await fs.mkdir(modelHome, { recursive: true })
+  const root = repoRoot()
+  const script = [
+    path.join(process.resourcesPath ?? '', 'runner', 'studio_generate.py'),
+    path.join(root, 'runner', 'studio_generate.py'),
+  ].find((candidate) => candidate && existsSync(candidate))
+  if (!script) throw new Error('This build does not include the local runtime.')
+  const { stdout, stderr, code } = await runPython(pythonBin(), script, modelHome, '', undefined, ['--library'], 60_000)
+  if (code !== 0) {
+    const tail = stderr.trim().split('\n').filter(Boolean).slice(-4).join(' ')
+    throw new Error(tail || 'The model library could not be read.')
+  }
+  const line = stdout
+    .trim()
+    .split('\n')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.startsWith('{') && entry.includes('"folders"'))
+    .at(-1)
+  if (!line) throw new Error('The model library could not be read.')
+  return JSON.parse(line) as LibraryReport
+}
+
+function addonId(value: string | undefined, folder: AddonFolder): string {
+  const id = value?.trim() ?? ''
+  if (!id) return ''
+  if (!canAttach(id, folder)) throw new Error(`That file is not a ${folder} weight.`)
+  return id
 }
 
 function runPython(
@@ -114,9 +146,11 @@ function runPython(
   modelHome: string,
   payload: string,
   onProgress?: (progress: LocalProgress) => void,
+  args: string[] = [],
+  timeoutMs = 60 * 60_000,
 ): Promise<{ stdout: string; stderr: string; code: number }> {
   return new Promise((resolve, reject) => {
-    const child = spawn(python, [script], {
+    const child = spawn(python, [script, ...args], {
       shell: false,
       env: {
         ...process.env,
@@ -135,7 +169,7 @@ function runPython(
     const timer = setTimeout(() => {
       child.kill()
       reject(new Error('Local generation took too long.'))
-    }, 60 * 60_000)
+    }, timeoutMs)
     child.stdout.on('data', (chunk: Buffer) => {
       const text = chunk.toString()
       stdout += text
@@ -169,13 +203,20 @@ function readProgress(line: string): LocalProgress | null {
   const trimmed = line.trim()
   if (!trimmed.startsWith('{') || !trimmed.includes('"phase"')) return null
   try {
-    const parsed = JSON.parse(trimmed) as { phase?: string; detail?: string; percent?: number }
-    if ((parsed.phase === 'download' || parsed.phase === 'generate') && parsed.detail) {
-      const percent =
-        typeof parsed.percent === 'number' && Number.isFinite(parsed.percent)
-          ? Math.max(0, Math.min(100, Math.round(parsed.percent)))
-          : undefined
-      return { phase: parsed.phase, detail: parsed.detail, percent }
+    const parsed = JSON.parse(trimmed) as LocalProgress
+    if ((parsed.phase === 'download' || parsed.phase === 'inspect' || parsed.phase === 'generate') && parsed.detail) {
+      return {
+        phase: parsed.phase,
+        detail: parsed.detail,
+        percent: typeof parsed.percent === 'number' ? parsed.percent : undefined,
+        bytes: typeof parsed.bytes === 'number' ? parsed.bytes : undefined,
+        total: typeof parsed.total === 'number' ? parsed.total : undefined,
+        speed: typeof parsed.speed === 'number' ? parsed.speed : undefined,
+        eta: typeof parsed.eta === 'number' ? parsed.eta : undefined,
+        filename: typeof parsed.filename === 'string' ? parsed.filename : undefined,
+        folder: typeof parsed.folder === 'string' ? parsed.folder : undefined,
+        status: parsed.status,
+      }
     }
   } catch {
     return null

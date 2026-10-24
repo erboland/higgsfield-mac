@@ -9,3 +9,4 @@ av==14.2.0
 numpy==2.2.2
 tqdm==4.67.1
 tokenizers==0.21.0
+peft==0.17.1
