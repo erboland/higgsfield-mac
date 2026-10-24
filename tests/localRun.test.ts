@@ -4,8 +4,8 @@ import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 
 import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
-import { LOCAL_MODEL_ID, localMediaKind } from '../src/shared/localRun.ts'
-import { OPEN_MODELS } from '../src/shared/openModels.ts'
+import { LOCAL_MODEL_ID, LOCAL_MODEL_NAME, localMediaKind } from '../src/shared/localRun.ts'
+import { OPEN_MODEL_ID, OPEN_MODEL_NAME } from '../src/shared/studioModels.ts'
 
 test('local media is image or video, and training or audio stays off this runner', () => {
   assert.equal(localMediaKind({ kind: 'image', prompt: 'a cup on a table', skillId: 'higgsfield-generate' }), 'image')
@@ -19,47 +19,40 @@ test('local media is image or video, and training or audio stays off this runner
   assert.equal(localMediaKind({ kind: 'image', prompt: '   ' }), null)
 })
 
-test('the runner names the open model and not a hosted Higgsfield model', () => {
-  const script = path.resolve('runner/local_generate.py')
+test('the runner names the open checkpoint and not a hosted Higgsfield model', () => {
+  const script = path.resolve('runner/studio_generate.py')
   const result = spawnSync('python3', [script, '--describe'], { encoding: 'utf8' })
-  assert.equal(result.status, 0)
-  const described = JSON.parse(result.stdout) as {
-    defaultModelId: string
-    models: { modelId: string; modelName: string }[]
-  }
-  assert.equal(described.defaultModelId, LOCAL_MODEL_ID)
-  assert.equal(described.defaultModelId, 'runwayml/stable-diffusion-v1-5')
-  for (const model of OPEN_MODELS) {
-    assert.ok(described.models.some((item) => item.modelId === model.id && item.modelName === model.name))
-  }
-  assert.ok(described.models.some((item) => item.modelId === 'nota-ai/bk-sdm-tiny'))
-  const names = described.models.map((item) => item.modelName).join(' ')
-  assert.doesNotMatch(names, /soul|kling|veo|seedance/i)
+  assert.equal(result.status, 0, result.stderr)
+  const described = JSON.parse(result.stdout) as { modelId: string; modelName: string }
+  assert.equal(described.modelId, LOCAL_MODEL_ID)
+  assert.equal(described.modelName, LOCAL_MODEL_NAME)
+  assert.equal(described.modelId, OPEN_MODEL_ID)
+  assert.equal(described.modelName, OPEN_MODEL_NAME)
+  assert.equal(described.modelId, 'stabilityai/sd-turbo')
+  assert.doesNotMatch(described.modelName, /soul|kling|veo|seedance|tiny/i)
 })
 
-test('a partial BK-SDM Tiny snapshot is deleted and the pipeline call does not pass dtype', () => {
-  const source = readFileSync('runner/local_generate.py', 'utf8')
-  assert.match(source, /allow_patterns/)
-  assert.match(source, /unet\/diffusion_pytorch_model\.safetensors/)
+test('a partial SD Turbo snapshot is deleted and the pipeline call does not pass dtype', () => {
+  const source = readFileSync('runner/studio_generate.py', 'utf8')
   assert.match(source, /torch_dtype=torch\.float32/)
-  assert.doesNotMatch(source, /["']dtype["']\s*:/)
+  assert.match(source, /allow_patterns/)
+  assert.doesNotMatch(source, /ignore_patterns/)
   assert.doesNotMatch(source, /(?<!torch_)dtype=torch\.float32/)
 
   const home = mkdtempSync(path.join(os.tmpdir(), 'higgsfield-home-'))
   const root = mkdtempSync(path.join(os.tmpdir(), 'higgsfield-support-'))
   const modelHome = path.join(root, 'models')
-  const repo = path.join(root, 'models--nota-ai--bk-sdm-tiny')
-  const broken = path.join(repo, 'snapshots', '0364108e53b7f7f4d2585e817a0b7a83dc261cfa')
+  const repo = path.join(root, 'models--stabilityai--sd-turbo')
+  const broken = path.join(repo, 'snapshots', 'partial')
   mkdirSync(broken, { recursive: true })
   mkdirSync(path.join(repo, 'refs'), { recursive: true })
-  writeFileSync(path.join(repo, 'refs', 'main'), '0364108e53b7f7f4d2585e817a0b7a83dc261cfa')
+  writeFileSync(path.join(repo, 'refs', 'main'), 'partial')
   writeFileSync(path.join(broken, 'model_index.json'), '{}\n')
 
   const probe = `
 import importlib.util
-import os
 import sys
-spec = importlib.util.spec_from_file_location("local_generate", sys.argv[1])
+spec = importlib.util.spec_from_file_location("studio_generate", sys.argv[1])
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 app_cache = __import__("pathlib").Path(sys.argv[2])
@@ -67,7 +60,7 @@ ready = module.repair_caches(app_cache)
 print("ready" if ready is not None else "missing")
 print("partial" if (app_cache.parent / module.REPO_DIR).exists() else "deleted")
 `
-  const result = spawnSync('python3', ['-c', probe, path.resolve('runner/local_generate.py'), modelHome], {
+  const result = spawnSync('python3', ['-c', probe, path.resolve('runner/studio_generate.py'), modelHome], {
     encoding: 'utf8',
     env: {
       ...process.env,
@@ -80,7 +73,7 @@ print("partial" if (app_cache.parent / module.REPO_DIR).exists() else "deleted")
   assert.equal(result.status, 0, result.stderr)
   assert.match(result.stdout, /missing/)
   assert.match(result.stdout, /deleted/)
-  assert.equal(existsSync(path.join(root, 'models--nota-ai--bk-sdm-tiny')), false)
+  assert.equal(existsSync(path.join(root, 'models--stabilityai--sd-turbo')), false)
 })
 
 test('the packaged runner does not tell the user to create a venv', () => {

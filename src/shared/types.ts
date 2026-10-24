@@ -94,26 +94,21 @@ export type LocalGeneration = {
   filePath: string
   mediaType: string
   base64: string
-}
-
-export type LocalModelChoice = {
-  id: string
-  name: string
-  detail: string
-  installed: boolean
-  selectable: boolean
-  kind: 'open' | 'checkpoint' | 'hosted'
-}
-
-export type LocalModelList = {
-  models: LocalModelChoice[]
-  comfyFolders: string[]
+  note?: string
+  checkpoint?: string
 }
 
 export type LocalProgress = {
-  phase: 'download' | 'generate'
+  phase: 'download' | 'inspect' | 'generate'
   detail: string
   percent?: number
+  bytes?: number
+  total?: number
+  speed?: number
+  eta?: number
+  filename?: string
+  folder?: string
+  status?: 'active' | 'completed' | 'failed'
 }
 
 export type HiggsfieldApi = {
@@ -126,8 +121,18 @@ export type HiggsfieldApi = {
   listJobs(workspaceId: string): Promise<SavedJob[]>
   saveJob(workspaceId: string, draft: JobDraft): Promise<SavedJob>
   runJob(workspaceId: string, draft: JobDraft): Promise<{ runId: string }>
-  listLocalModels(): Promise<LocalModelList>
-  generateLocal(input: { workspaceId: string; prompt: string; kind: 'image' | 'video'; modelId?: string }): Promise<LocalGeneration>
+  listLibrary(): Promise<import('./studioModels.ts').LibraryReport>
+  generateLocal(input: {
+    workspaceId?: string
+    prompt: string
+    kind: 'image' | 'video'
+    modelId?: string
+    aspectRatio?: string
+    loraId?: string
+    vaeId?: string
+    embeddingId?: string
+  }): Promise<LocalGeneration>
+  openResult(filePath: string): Promise<void>
   onLocalProgress(listener: (event: LocalProgress) => void): () => void
   onJobEvent(listener: (event: JobEvent) => void): () => void
   openExternal(url: string): Promise<void>
