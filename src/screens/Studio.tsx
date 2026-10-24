@@ -1,417 +1,215 @@
-import { useEffect, useMemo, useState } from 'react'
-import { RunProgress } from '@/components/RunProgress'
+import { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { getApi } from '@/lib/api'
-import { useModelLibrary } from '@/lib/useModelLibrary'
-import {
-  aspectRatios,
-  marketplaceScopes,
-  models,
-  photoshootModes,
-  skills,
-  websiteTemplates,
-} from '@/shared/catalog.ts'
-import { buildCommand } from '@/shared/command.ts'
-import type { JobDraft, LocalGeneration, SavedJob, Workspace } from '@/shared/types.ts'
+import { cn } from '@/lib/utils'
+import type { StudioDraft, StudioShot } from '@/App'
+import { CHECKPOINT_FOLDERS, HOSTED_MODELS, OPEN_CHECKPOINTS, OPEN_MODEL_NOTE, canRunModel, modelChoiceLabel, type AddonFolder, type LibraryReport } from '@/shared/studioModels.ts'
+import { STUDIO_ASPECTS, templateById } from '@/shared/studioTemplates.ts'
+import type { LocalGeneration, LocalProgress } from '@/shared/types.ts'
 
-const selectClass =
-  'h-10 w-full rounded-xl border border-line bg-paper px-3 text-sm text-ink outline-none focus:border-accent'
-
-export function Studio({ draft, onDraft }: { draft: JobDraft; onDraft: (draft: JobDraft) => void }) {
-  const api = useMemo(() => getApi(), [])
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
-  const [workspaceId, setWorkspaceId] = useState<string>('')
-  const [jobs, setJobs] = useState<SavedJob[]>([])
-  const [localResult, setLocalResult] = useState<LocalGeneration | null>(null)
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [status, setStatus] = useState('')
-  const [percent, setPercent] = useState<number | null>(null)
-  const library = useModelLibrary()
-
-  useEffect(
-    () =>
-      api.onLocalProgress((event) => {
-        setStatus(event.detail)
-        setPercent(event.percent ?? null)
-      }),
-    [api],
+function AddonSelect({
+  label,
+  folder,
+  value,
+  library,
+  onChange,
+}: {
+  label: string
+  folder: AddonFolder
+  value: string
+  library: LibraryReport | null
+  onChange: (id: string) => void
+}) {
+  const files = library?.folders.find((entry) => entry.name === folder)?.files ?? []
+  return (
+    <label className="text-xs tracking-wide text-muted uppercase">
+      {label}
+      <select
+        aria-label={label}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 w-full rounded-xl border border-line bg-panel px-3 py-2 text-sm text-ink normal-case"
+      >
+        <option value="">None</option>
+        {files.map((file) => (
+          <option key={file.id} value={file.id}>
+            {file.filename}
+          </option>
+        ))}
+      </select>
+    </label>
   )
+}
 
-  const built = buildCommand(draft)
-  const skill = skills.find((item) => item.id === draft.skillId)
-  const usesModel =
-    draft.skillId === 'higgsfield-generate' ||
-    draft.skillId === 'higgsfield-brandkit' ||
-    draft.skillId === 'higgsfield-video-explainer' ||
-    draft.skillId === 'higgsfield-youtube-thumbnail'
-  const model = models.find((item) => item.id === draft.modelId)
+export function Studio({
+  draft,
+  onDraft,
+  busy,
+  progress,
+  result,
+  shots,
+  library,
+  error,
+  onGenerate,
+}: {
+  draft: StudioDraft
+  onDraft: (draft: StudioDraft) => void
+  busy: boolean
+  progress: LocalProgress | null
+  result: LocalGeneration | null
+  shots: StudioShot[]
+  library: LibraryReport | null
+  error: string | null
+  onGenerate: () => void
+}) {
+  const template = templateById(draft.templateId)
+  const percent = progress?.percent
+  const [copied, setCopied] = useState<string | null>(null)
 
-  async function refreshWorkspaces(selectId?: string) {
-    const next = await api.listWorkspaces()
-    setWorkspaces(next)
-    setWorkspaceId((current) => selectId || current || next[0]?.id || '')
-  }
-
-  useEffect(() => {
-    void refreshWorkspaces()
-    // The bridge identity is stable for the lifetime of the page.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => {
-    if (!workspaceId) {
-      setJobs([])
-      return
-    }
-    void api.listJobs(workspaceId).then(setJobs).catch((reason: unknown) => {
-      setError(reason instanceof Error ? reason.message : 'Could not read jobs.')
-    })
-  }, [api, workspaceId])
-
-  function patch(partial: Partial<JobDraft>) {
-    onDraft({ ...draft, ...partial })
-    setError('')
-  }
-
-  async function onChooseFolder() {
-    setError('')
-    const directory = await api.pickDirectory()
-    if (!directory) return
-    const name = directory.split(/[/\\]/).filter(Boolean).at(-1) || 'Output'
-    try {
-      const created = await api.createWorkspace({ name, directory })
-      await refreshWorkspaces(created.id)
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Could not use that folder.')
-    }
-  }
-
-  async function onSave() {
-    if (!workspaceId) {
-      setError('Create a workspace before saving.')
-      return
-    }
-    setError('')
-    try {
-      const job = await api.saveJob(workspaceId, draft)
-      setJobs((current) => [job, ...current])
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Could not save the job.')
-    }
-  }
-
-  async function onGenerate() {
-    const prompt = draft.prompt.trim()
-    if (!prompt) {
-      setError('Write a prompt first.')
-      return
-    }
-    const kind = model?.modality === 'video' ? 'video' : 'image'
-    setBusy(true)
-    setPercent(null)
-    setStatus(library.selected?.installed ? 'Generating' : 'Downloading the selected model')
-    setError('')
-    try {
-      setLocalResult(await api.generateLocal({ workspaceId, prompt, kind, modelId: library.modelId }))
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Local generation failed.')
-    } finally {
-      setBusy(false)
-    }
+  async function copyPrompt(id: string, prompt: string) {
+    await navigator.clipboard.writeText(prompt)
+    setCopied(id)
   }
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-6 px-5 py-6 lg:grid-cols-[280px_1fr]">
-      <section className="space-y-4">
-        <article className="rounded-2xl border border-line bg-panel p-4">
-          <h2 className="font-serif text-xl">Local model</h2>
-          <Badge className="mt-3 border-accent text-accent">
-            {library.loading ? 'Checking' : library.selected?.installed ? 'Installed' : 'Not downloaded'}
-          </Badge>
-          <p className="mt-3 text-sm">{library.selected?.name ?? 'Select a checkpoint'}</p>
-          <p className="mt-1 break-all text-xs text-muted">{library.selected?.id}</p>
-          <p className="mt-3 text-sm text-muted">
-            {library.selected?.installed
-              ? 'This checkpoint is on the machine. Generate runs it.'
-              : 'Generate downloads this checkpoint, shows the progress, then runs it.'}
-          </p>
-        </article>
-
-        <article className="rounded-2xl border border-line bg-panel p-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-serif text-xl">Output folder</h2>
-            <Button variant="outline" size="sm" onClick={() => void onChooseFolder()}>
-              Choose folder
-            </Button>
+    <div className="flex min-h-full flex-col">
+      <section className="flex-1 px-4 py-5 sm:px-8">
+        <p className="text-[11px] tracking-[0.22em] text-accent uppercase">{template?.group ?? 'Create'}</p>
+        <h1 className="mt-2 max-w-xl font-serif text-3xl tracking-tight sm:text-4xl">Generate images and video with Higgsfield models.</h1>
+        <p className="mt-2 max-w-xl text-sm text-muted">
+          The prompt runs on the checkpoint you select. SDXL Base is the full file. SD Turbo and SDXL Turbo are distilled. Soul, Kling, and Seedance stay in the menu because their weights are not public.
+        </p>
+        {!result && !error && (
+          <div className="mt-6 grid min-h-72 place-items-center rounded-3xl border border-dashed border-line px-6 text-center text-sm text-muted">
+            Pick a template or write a prompt, then Generate. The file opens from the gallery.
           </div>
-          {workspaces.length === 0 ? (
-            <p className="mt-3 text-sm text-muted">Choose a folder. Images and videos are saved inside it.</p>
-          ) : (
-            <ul className="mt-3 space-y-2">
-              {workspaces.map((workspace) => (
-                <li key={workspace.id}>
-                  <button
-                    type="button"
-                    onClick={() => setWorkspaceId(workspace.id)}
-                    className={`w-full rounded-xl px-3 py-2 text-left text-sm ${
-                      workspace.id === workspaceId ? 'bg-panel-2' : 'hover:bg-white/5'
-                    }`}
-                  >
-                    <span className="block">{workspace.name}</span>
-                    <span className="block truncate text-xs text-muted">{workspace.directory}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          {workspaceId && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-2"
-              onClick={() => {
-                void api.removeWorkspace(workspaceId).then(() => refreshWorkspaces())
-              }}
-            >
-              Remove from list
-            </Button>
-          )}
-          <p className="mt-3 text-xs text-muted">Removing a workspace leaves the folder on disk.</p>
-        </article>
-
-        <article className="rounded-2xl border border-dashed border-line p-4 text-sm text-muted">
-          <h2 className="font-serif text-lg text-ink">How a run works</h2>
-          <p className="mt-2">
-            Generate uses the checkpoint selected below. A missing checkpoint is downloaded first. The picture or clip is written into the output folder.
-          </p>
-        </article>
-      </section>
-
-      <section className="flex flex-col gap-4">
-        <header>
-          <p className="text-[11px] tracking-[0.22em] text-accent uppercase">Create</p>
-          <h1 className="mt-1 font-serif text-4xl tracking-tight">{skill?.title ?? 'Create'}</h1>
-          <p className="mt-2 max-w-xl text-sm text-muted">
-            {skill?.summary} The prompt runs on the selected checkpoint.
-          </p>
-        </header>
-
-        <article className="rounded-2xl border border-line bg-panel p-4">
-          <h2 className="font-serif text-xl">Results</h2>
-          {jobs.length === 0 ? (
-            <p className="mt-2 text-sm text-muted">Nothing saved in this workspace yet. A finished run prints below.</p>
-          ) : (
-            <ul className="mt-3 space-y-3">
-              {jobs.map((job) => (
-                <li key={job.id} className="rounded-xl bg-black p-3">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <p className="text-sm">{job.summary}</p>
-                    <time className="text-xs text-muted">{new Date(job.createdAt).toLocaleString()}</time>
+        )}
+        {result && (
+          <div className="mt-6 overflow-hidden rounded-3xl border border-line bg-panel">
+            {result.kind === 'video' ? (
+              <video className="max-h-[480px] w-full bg-black object-contain" controls src={`data:${result.mediaType};base64,${result.base64}`} />
+            ) : (
+              <img className="max-h-[480px] w-full bg-black object-contain" alt={draft.prompt} src={`data:${result.mediaType};base64,${result.base64}`} />
+            )}
+          </div>
+        )}
+        {error && <p className="mt-4 text-sm text-danger">{error}</p>}
+        {shots.length > 0 && (
+          <div className="mt-6">
+            <p className="text-[11px] tracking-[0.22em] text-muted uppercase">Gallery</p>
+            <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {shots.map((shot) => (
+                <li key={shot.id} className="overflow-hidden rounded-2xl border border-line bg-panel">
+                  {shot.result.kind === 'video' ? (
+                    <video className="aspect-video w-full bg-black object-cover" src={`data:${shot.result.mediaType};base64,${shot.result.base64}`} />
+                  ) : (
+                    <img className="aspect-square w-full bg-black object-cover" alt="" src={`data:${shot.result.mediaType};base64,${shot.result.base64}`} />
+                  )}
+                  <div className="flex gap-2 p-2">
+                    <Button size="sm" variant="outline" onClick={() => void copyPrompt(shot.id, shot.prompt)}>
+                      {copied === shot.id ? 'Copied' : 'Copy prompt'}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => void getApi().openResult(shot.result.filePath)}>
+                      Open
+                    </Button>
                   </div>
-                  <pre className="mt-2 overflow-x-auto text-xs text-muted whitespace-pre-wrap">{job.display}</pre>
-                  <Button variant="ghost" size="sm" className="mt-2" onClick={() => onDraft(job.draft)}>
-                    Load
-                  </Button>
                 </li>
               ))}
             </ul>
-          )}
-          <h3 className="mt-5 font-serif text-lg">Latest file</h3>
-          {localResult ? (
-            <figure className="mt-3 overflow-hidden rounded-xl border border-line bg-black">
-              {localResult.kind === 'image' ? (
-                <img
-                  alt=""
-                  className="max-h-80 w-full object-contain"
-                  src={`data:${localResult.mediaType};base64,${localResult.base64}`}
-                />
-              ) : (
-                <video className="max-h-80 w-full" controls src={`data:${localResult.mediaType};base64,${localResult.base64}`} />
-              )}
-              <figcaption className="space-y-1 p-3 text-xs text-muted">
-                <p className="text-sm text-ink">{localResult.modelName}</p>
-                <p className="break-all">{localResult.filePath}</p>
-              </figcaption>
-            </figure>
-          ) : (
-            <p className="mt-2 text-sm text-muted">Generate to see the image or video here.</p>
-          )}
-        </article>
-
-        <div className="sticky bottom-4 z-10 order-last grid gap-3 rounded-2xl border border-white/15 bg-[#131517]/95 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.45)] backdrop-blur">
-          <label className="space-y-1.5">
-            <span className="text-xs tracking-[0.16em] text-muted uppercase">Skill</span>
-            <select
-              className={selectClass}
-              value={draft.skillId}
-              onChange={(event) => {
-                const skillId = event.target.value as JobDraft['skillId']
-                const next = skills.find((item) => item.id === skillId)
-                patch({
-                  skillId,
-                  modelId: next?.defaultModelId ?? draft.modelId,
-                })
-              }}
-            >
-              {skills.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.title}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="space-y-1.5">
-            <span className="text-xs tracking-[0.16em] text-muted uppercase">Model</span>
-            <select
-              className={selectClass}
-              value={library.modelId}
-              onChange={(event) => library.chooseModel(event.target.value)}
-            >
-              {library.runnable.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.name}
-                  {model.installed ? '' : ' — not downloaded'}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {draft.skillId === 'higgsfield-product-photoshoot' && (
-            <label className="space-y-1.5">
-              <span className="text-xs tracking-[0.16em] text-muted uppercase">Mode</span>
-              <select
-                className={selectClass}
-                value={draft.photoshootMode}
-                onChange={(event) => patch({ photoshootMode: event.target.value })}
-              >
-                {photoshootModes.map((mode) => (
-                  <option key={mode.id} value={mode.id}>
-                    {mode.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-
-          {draft.skillId === 'higgsfield-marketplace-cards' && (
-            <label className="space-y-1.5">
-              <span className="text-xs tracking-[0.16em] text-muted uppercase">Scope</span>
-              <select
-                className={selectClass}
-                value={draft.marketplaceScope}
-                onChange={(event) => patch({ marketplaceScope: event.target.value })}
-              >
-                {marketplaceScopes.map((scope) => (
-                  <option key={scope.id} value={scope.id}>
-                    {scope.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-
-          {draft.skillId === 'higgsfield-soul-id' && (
-            <label className="space-y-1.5">
-              <span className="text-xs tracking-[0.16em] text-muted uppercase">Character name</span>
-              <Input value={draft.characterName} onChange={(event) => patch({ characterName: event.target.value })} />
-            </label>
-          )}
-
-          {draft.skillId === 'higgsfield-websites' ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="space-y-1.5">
-                <span className="text-xs tracking-[0.16em] text-muted uppercase">Type</span>
-                <select
-                  className={selectClass}
-                  value={draft.websiteType}
-                  onChange={(event) => patch({ websiteType: event.target.value as JobDraft['websiteType'] })}
-                >
-                  <option value="website">Website</option>
-                  <option value="app">App</option>
-                  <option value="game">Game</option>
-                </select>
-              </label>
-              <label className="space-y-1.5">
-                <span className="text-xs tracking-[0.16em] text-muted uppercase">Category slug</span>
-                <Input value={draft.websiteCategory} onChange={(event) => patch({ websiteCategory: event.target.value })} />
-              </label>
-              {draft.websiteType === 'app' && (
-                <label className="space-y-1.5">
-                  <span className="text-xs tracking-[0.16em] text-muted uppercase">Template</span>
-                  <select
-                    className={selectClass}
-                    value={draft.websiteTemplate}
-                    onChange={(event) => patch({ websiteTemplate: event.target.value })}
-                  >
-                    {websiteTemplates.map((template) => (
-                      <option key={template} value={template}>
-                        {template}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              <label className="space-y-1.5">
-                <span className="text-xs tracking-[0.16em] text-muted uppercase">Subdomain</span>
-                <Input
-                  placeholder="optional"
-                  value={draft.subdomain}
-                  onChange={(event) => patch({ subdomain: event.target.value })}
-                />
-              </label>
-            </div>
-          ) : (
-            draft.skillId !== 'higgsfield-soul-id' &&
-            model?.prompt !== 'unused' && (
-              <label className="space-y-1.5">
-                <span className="text-xs tracking-[0.16em] text-muted uppercase">Prompt</span>
-                <Textarea
-                  value={draft.prompt}
-                  placeholder="What should this job make?"
-                  onChange={(event) => patch({ prompt: event.target.value })}
-                />
-              </label>
-            )
-          )}
-
-          {(usesModel && (model?.modality === 'image' || model?.modality === 'video') && model.prompt !== 'unused') ||
-          draft.skillId === 'higgsfield-product-photoshoot' ? (
-            <label className="space-y-1.5">
-              <span className="text-xs tracking-[0.16em] text-muted uppercase">Aspect ratio</span>
-              <select
-                className={selectClass}
-                value={draft.aspectRatio}
-                onChange={(event) => patch({ aspectRatio: event.target.value })}
-              >
-                <option value="">Default</option>
-                {aspectRatios.filter(Boolean).map((ratio) => (
-                  <option key={ratio} value={ratio}>
-                    {ratio}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-
-          <RunProgress busy={busy} status={status} percent={percent} />
-          {error && <p className="text-sm text-danger">{error}</p>}
-
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" disabled={'error' in built} onClick={() => void onSave()}>
-              Save to workspace
-            </Button>
-            <Button disabled={busy || !draft.prompt.trim()} onClick={() => void onGenerate()}>
-              {busy ? 'Generating…' : 'Generate'}
-            </Button>
           </div>
-        </div>
+        )}
       </section>
-
+      <form
+        className="sticky bottom-0 border-t border-line bg-black/90 px-4 py-3 backdrop-blur sm:px-8"
+        onSubmit={(event) => {
+          event.preventDefault()
+          if (!busy && draft.prompt.trim() && canRunModel(draft.modelId)) onGenerate()
+        }}
+      >
+        <Textarea
+          value={draft.prompt}
+          onChange={(event) => onDraft({ ...draft, prompt: event.target.value })}
+          className="min-h-20 resize-none text-base"
+          placeholder="Describe the frame"
+        />
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {STUDIO_ASPECTS.map((aspect) => (
+            <button
+              key={aspect}
+              type="button"
+              onClick={() => onDraft({ ...draft, aspect })}
+              className={cn(
+                'rounded-full px-3 py-1 text-xs',
+                draft.aspect === aspect ? 'bg-accent text-accent-ink' : 'bg-white/5 text-white/70',
+              )}
+            >
+              {aspect}
+            </button>
+          ))}
+          <Badge>{draft.kind === 'video' ? 'Clip' : 'Still'}</Badge>
+        </div>
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <label className="min-w-0 flex-1 text-xs tracking-wide text-muted uppercase">
+            Model
+            <select
+              value={draft.modelId}
+              onChange={(event) => onDraft({ ...draft, modelId: event.target.value })}
+              className="mt-1 w-full rounded-xl border border-line bg-panel px-3 py-2 text-sm text-ink normal-case"
+            >
+              <optgroup label="Open checkpoints">
+                {(library?.models ?? OPEN_CHECKPOINTS.map((model) => ({ ...model, installed: false, runnable: true }))).map((model) => (
+                  <option key={model.id} value={model.id}>
+                    {model.name}
+                    {model.installed ? '' : ' — download'}
+                  </option>
+                ))}
+                {library?.folders
+                  .filter((folder) => (CHECKPOINT_FOLDERS as readonly string[]).includes(folder.name))
+                  .flatMap((folder) =>
+                    folder.files.map((file) => (
+                      <option key={file.id} value={file.id}>
+                        {folder.name}/{file.filename}
+                      </option>
+                    )),
+                  )}
+              </optgroup>
+              <optgroup label="No public weights">
+                {HOSTED_MODELS.map((model) => (
+                  <option key={model.id} value={model.id} disabled>
+                    {model.name}
+                  </option>
+                ))}
+              </optgroup>
+            </select>
+          </label>
+          <Button type="submit" size="lg" disabled={busy || !draft.prompt.trim() || !canRunModel(draft.modelId)}>
+            {busy ? 'Generating' : 'Generate'}
+          </Button>
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <AddonSelect label="LoRA" folder="loras" value={draft.loraId} library={library} onChange={(loraId) => onDraft({ ...draft, loraId })} />
+          <AddonSelect label="VAE" folder="vae" value={draft.vaeId} library={library} onChange={(vaeId) => onDraft({ ...draft, vaeId })} />
+          <AddonSelect
+            label="Embedding"
+            folder="embeddings"
+            value={draft.embeddingId}
+            library={library}
+            onChange={(embeddingId) => onDraft({ ...draft, embeddingId })}
+          />
+        </div>
+        <p className="mt-2 text-xs text-muted">{OPEN_MODEL_NOTE}</p>
+        <p className="text-xs text-muted">{modelChoiceLabel(draft.modelId)}</p>
+        {busy && (
+          <div className="mt-3">
+            <div className="h-1 overflow-hidden rounded-full bg-white/10">
+              <div className="h-full bg-accent transition-all" style={{ width: `${percent ?? 8}%` }} />
+            </div>
+            <p className="mt-2 text-sm">{progress?.detail || 'Resolving models'}</p>
+          </div>
+        )}
+      </form>
     </div>
   )
 }
