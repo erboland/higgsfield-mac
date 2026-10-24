@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.1
+## 0.2.1 — 24 Oct 2026
 
 - SDXL Base (`sd_xl_base_1.0.safetensors`) is the full checkpoint. Generate downloads it through the Downloads tray, then writes a still at 20 steps and guidance 5. SD Turbo and SDXL Turbo stay as distilled fast models.
 - `.safetensors` and `.ckpt` files in `checkpoints` and `diffusion_models` are what Generate runs. LoRAs, VAEs, and embeddings in those folders attach to the selected checkpoint.
