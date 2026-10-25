@@ -69,6 +69,15 @@ ASPECTS = {
     "4:3": (512, 384),
     "3:4": (384, 512),
 }
+# SDXL Base was trained near 1024 on the long side. 384×512 leaves most seeds as noise.
+# Long side stays at 1024 so the VAE does not tile (tile latent threshold is 128).
+SDXL_ASPECTS = {
+    "1:1": (1024, 1024),
+    "16:9": (1024, 576),
+    "9:16": (576, 1024),
+    "4:3": (1024, 768),
+    "3:4": (768, 1024),
+}
 
 ALLOW_PATTERNS = [
     "model_index.json",
@@ -315,7 +324,7 @@ def file_model_id(folder: str, filename: str) -> str:
 def resolve_library_file(root: Path, model_id: str) -> Path:
     if not model_id.startswith("file:"):
         raise SystemExit(f"{model_id} is not a file in the model library.")
-    relative = model_id[len("file:") :]
+    relative = model_id[len("file:"):]
     parts = relative.split("/")
     if len(parts) != 2 or parts[0] not in LIBRARY_FOLDERS or parts[1] in ("", ".", ".."):
         raise SystemExit("That file is outside the model folders.")
@@ -615,6 +624,19 @@ def family_for(path: Path) -> str:
     return "sd"
 
 
+def keep_sdxl_vae_in_fp32(pipe) -> None:
+    """Decode SDXL in fp32. The stock upcast puts the VAE mid-block back in fp16, and that overflows into gray bars."""
+    import torch
+
+    if not hasattr(pipe, "upcast_vae"):
+        return
+
+    def upcast_vae() -> None:
+        pipe.vae.to(torch.float32)
+
+    pipe.upcast_vae = upcast_vae
+
+
 def load_checkpoint_file(path: Path, family: str, config_dir: Path | None):
     import torch
     from diffusers import StableDiffusionPipeline, StableDiffusionXLPipeline
@@ -626,6 +648,7 @@ def load_checkpoint_file(path: Path, family: str, config_dir: Path | None):
             torch_dtype=torch.float16,
             local_files_only=True,
         )
+        keep_sdxl_vae_in_fp32(pipe)
         steps = 1 if family == "sdxl-turbo" else BASE_STEPS
         guidance = 0.0 if family == "sdxl-turbo" else BASE_GUIDANCE
     else:
@@ -816,16 +839,17 @@ def generate(job: dict) -> None:
     aspect = str(job.get("aspectRatio") or "1:1")
     if aspect not in ASPECTS:
         raise SystemExit("Unknown aspect ratio.")
-    width, height = ASPECTS[aspect]
     root = library_root()
     checkpoint: Path | None = None
     model_name = MODEL_NAME
     steps = 2
     guidance = 0.0
+    family = "sd"
     if model_id == MODEL_ID:
         cache = choose_cache()
         pipe, inspection = load_pipeline(cache)
     elif model_id == SDXL_ID:
+        family = "sdxl-turbo"
         model_name = SDXL_NAME
         checkpoint = ensure_sdxl(root)
         config_dir = ensure_sdxl_config(root, SDXL_ID)
@@ -833,6 +857,7 @@ def generate(job: dict) -> None:
         emit({"phase": "inspect", "detail": inspection["detail"], "status": "completed" if inspection["available"] else "failed"})
         pipe, steps, guidance = load_checkpoint_file(checkpoint, "sdxl-turbo", config_dir)
     elif model_id == BASE_ID:
+        family = "sdxl-base"
         model_name = BASE_NAME
         checkpoint = ensure_base(root)
         config_dir = ensure_sdxl_config(root, BASE_ID)
@@ -856,6 +881,7 @@ def generate(job: dict) -> None:
         pipe, steps, guidance = load_checkpoint_file(checkpoint, family, config_dir)
     else:
         raise SystemExit(f"{model_id} has no public weights in this app.")
+    width, height = (SDXL_ASPECTS if family == "sdxl-base" else ASPECTS)[aspect]
     import torch
 
     torch.set_num_threads(int(os.environ.get("OMP_NUM_THREADS", "4")))
