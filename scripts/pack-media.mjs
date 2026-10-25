@@ -14,6 +14,7 @@ function addDir(dir) {
 }
 
 addDir(path.join(root, 'public', 'demos'))
+addDir(path.join(root, 'public', 'covers'))
 addDir(path.join(root, 'docs', 'screenshots'))
 
 const partsRoot = path.join(root, 'media-parts')

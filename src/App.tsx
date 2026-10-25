@@ -9,6 +9,7 @@ import { Models } from '@/screens/Models'
 import { Studio } from '@/screens/Studio'
 import { Templates } from '@/screens/Templates'
 import { BASE_MODEL_ID, canRunModel, type LibraryReport } from '@/shared/studioModels.ts'
+import { coverUrl } from '@/shared/coverUrl.ts'
 import { LOCAL_TEMPLATES, type StudioAspect, type StudioTemplate } from '@/shared/studioTemplates.ts'
 import type { AppInfo, LocalGeneration, LocalProgress } from '@/shared/types.ts'
 
@@ -241,8 +242,10 @@ export function App() {
                   onClick={() => useTemplate(entry)}
                   className="overflow-hidden rounded-2xl border border-white/10 bg-black text-left hover:border-accent"
                 >
-                  <div className="flex h-28 items-end bg-[linear-gradient(160deg,#141210,#2a241c)] p-4">
-                    <p className="font-serif text-xl">{entry.title}</p>
+                  <div className="relative flex h-28 items-end overflow-hidden bg-black p-4">
+                    <img src={coverUrl(entry.id)} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/80 to-transparent" />
+                    <p className="relative font-serif text-xl">{entry.title}</p>
                   </div>
                   <div className="flex items-center justify-between px-4 py-3">
                     <span className="text-xs text-muted">{entry.aspect}</span>

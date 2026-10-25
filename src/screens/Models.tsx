@@ -3,13 +3,14 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { BASE_MODEL_ID, CHECKPOINT_FOLDERS, HOSTED_MODELS, MODEL_FOLDERS, OPEN_CHECKPOINTS, type LibraryReport } from '@/shared/studioModels.ts'
+import { coverUrl } from '@/shared/coverUrl.ts'
+import { BASE_MODEL_ID, CHECKPOINT_FOLDERS, HOSTED_MODELS, MODEL_FOLDERS, OPEN_CHECKPOINTS, OPEN_MODEL_ID, SDXL_MODEL_ID, type LibraryReport } from '@/shared/studioModels.ts'
 
-const WASH = [
-  'bg-[radial-gradient(circle_at_18%_30%,#d1fe17_0%,rgba(209,254,23,0.15)_28%,transparent_52%),linear-gradient(165deg,#1c240c,#0c0e08)]',
-  'bg-[radial-gradient(circle_at_80%_20%,#ffffff_0%,rgba(255,255,255,0.12)_22%,transparent_50%),linear-gradient(180deg,#1a1c20,#0c0c0e)]',
-  'bg-[radial-gradient(circle_at_40%_80%,#8aa0ff_0%,rgba(120,140,255,0.2)_26%,transparent_55%),linear-gradient(180deg,#141820,#0c0e12)]',
-]
+const MODEL_COVER: Record<string, string> = {
+  [OPEN_MODEL_ID]: 'sd-turbo',
+  [BASE_MODEL_ID]: 'sdxl-base',
+  [SDXL_MODEL_ID]: 'sdxl-turbo',
+}
 
 function formatBytes(value: number): string {
   if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} KB`
@@ -86,12 +87,13 @@ export function Models({
 
       {chip === 'checkpoints' && (
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {visibleModels.map((model, index) => {
+          {visibleModels.map((model) => {
             const bytes = bytesOf(model.folder, model.filename)
             const selected = selectedId === model.id
+            const cover = MODEL_COVER[model.id]
             return (
               <article key={model.id} className={cn('overflow-hidden rounded-2xl border bg-panel', selected ? 'border-accent' : 'border-white/10')}>
-                <div className={cn('h-28', WASH[index % WASH.length])} />
+                {cover ? <img src={coverUrl(cover)} alt="" className="h-28 w-full object-cover" /> : <div className="h-28 bg-black" />}
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <h2 className="font-serif text-xl tracking-tight">{model.name}</h2>

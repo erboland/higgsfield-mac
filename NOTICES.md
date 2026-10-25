@@ -25,6 +25,24 @@ Local stills use SDXL Base (`stabilityai/stable-diffusion-xl-base-1.0`), SD Turb
 
 Model files are identified with [REA](https://github.com/morluto/rea) (`rea-agents`, MIT). This repository does not vendor that source. The app shells out to `rea inspect-model-artifact`. REA does not run inference.
 
+## Card photographs
+
+Template covers for Editorial still, Lifestyle at home, Product hero shot, and UGC review are stills drawn in this project with SDXL Base from each template's own prompt. They are not copies of higgsfield.com or ComfyUI marketing.
+
+Hosted template cards and the checkpoint cards use photographs from [Unsplash](https://unsplash.com), stored in the app so the cards do not load them from the network. They are under the [Unsplash License](https://unsplash.com/license).
+
+- Soul — [Aiony Haust](https://images.unsplash.com/photo-1534528741775-53994a69daeb)
+- Kling — [Jakob Owens](https://unsplash.com/@jakobowens1), [photo](https://images.unsplash.com/photo-1485846234645-a62644f84728)
+- Veo — [Felix Mooneeram](https://unsplash.com/@felixmooneeram), [red cinema chairs](https://unsplash.com/photos/red-cinema-chair-evlkOfkQ5rE), [photo](https://images.unsplash.com/photo-1489599849927-2ee91cede3ba)
+- Angles — [Lance Anderson](https://unsplash.com/photos/QdAAasrZhdk), [photo](https://images.unsplash.com/photo-1487958449943-2429e8be8625)
+- SD Turbo — Alexander Andrews, [photo](https://images.unsplash.com/photo-1516035069371-29a1b244cc32)
+- SDXL Base card — [photo](https://images.unsplash.com/photo-1469334031218-e382a71b716b)
+- SDXL Turbo — [photo](https://images.unsplash.com/photo-1452587925148-ce544e77e70d)
+- Genjutsu — [photo](https://images.unsplash.com/photo-1518709268805-4e9042af9f23)
+- Seedance — [photo](https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad)
+
+The last four list the image because a photographer name could not be confirmed from the file or from a page that credits that exact photo.
+
 ## Upstream desktop shell
 
 [Comfy Desktop](https://github.com/Comfy-Org/Comfy-Desktop) is dual-licensed AGPL-3.0-or-later or a commercial license. Copyright (c) Comfy Org. [ComfyUI](https://github.com/Comfy-Org/ComfyUI) is GPL-3.0.

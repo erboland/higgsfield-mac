@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.3 — 25 Oct 2026
+
+- Template and model cards show photographs bundled in the app. Editorial still, Lifestyle at home, Product hero shot, and UGC review use SDXL Base covers from each template prompt. Hosted cards and checkpoints use Unsplash photographs credited in NOTICES.
+
 ## 0.2.2 — 25 Oct 2026
 
 - Create is a stage with the prompt on a bottom bar. Templates are cards. Models is a checkpoint catalog. LoRA, VAE, and embedding weights stay behind Weights.
@@ -44,4 +48,3 @@
 - Local image and video run on BK-SDM Tiny and save into the workspace.
 - Template cards include a demo image. Video templates also include a short MP4.
 - Unsigned macOS disk image from GitHub Actions, created with `hdiutil` and checked with `hdiutil verify`.
-
