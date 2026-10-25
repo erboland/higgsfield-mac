@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2 — 25 Oct 2026
+
+- Create is a stage with the prompt on a bottom bar. Templates are cards. Models is a checkpoint catalog. LoRA, VAE, and embedding weights stay behind Weights.
+- SDXL stills decode the VAE in fp32. The fp16 mid-block was overflowing into gray bars.
+- SDXL Base draws near 1024 on the long side. A 384×512 frame is outside that checkpoint and comes out as noise.
+
 ## 0.2.1 — 24 Oct 2026
 
 - SDXL Base (`sd_xl_base_1.0.safetensors`) is the full checkpoint. Generate downloads it through the Downloads tray, then writes a still at 20 steps and guidance 5. SD Turbo and SDXL Turbo stay as distilled fast models.
