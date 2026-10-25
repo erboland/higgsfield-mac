@@ -69,6 +69,12 @@ export function App() {
   const [libraryError, setLibraryError] = useState<string | null>(null)
 
   useEffect(() => {
+    const onHash = () => setView(viewFromHash())
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+
+  useEffect(() => {
     void getApi()
       .getInfo()
       .then(setInfo)
@@ -84,6 +90,7 @@ export function App() {
       setProgress(event)
       const row = rowFromProgress(event)
       if (!row) return
+      if (row.status === 'active' && (row.total ?? 0) > 0 && row.percent < 100) setDownloadsOpen(true)
       setRows((current) => {
         const rest = current.filter((item) => item.id !== row.id)
         return [row, ...rest]
@@ -128,7 +135,9 @@ export function App() {
   async function generate() {
     setBusy(true)
     setError(null)
-    setDownloadsOpen(true)
+    const known = library?.models.find((model) => model.id === draft.modelId)
+    const onDisk = draft.modelId.startsWith('file:') || Boolean(known?.installed)
+    if (!onDisk) setDownloadsOpen(true)
     try {
       const next = await getApi().generateLocal({
         prompt: draft.prompt,
@@ -154,7 +163,7 @@ export function App() {
 
   return (
     <div className="flex h-full flex-col bg-black">
-      <header className={cn('drag flex items-center justify-between border-b border-line px-4 py-3', info?.platform === 'darwin' && 'pl-24')}>
+      <header className={cn('drag flex h-12 items-center justify-between border-b border-white/10 px-4', info?.platform === 'darwin' && 'pl-24')}>
         <div className="flex items-center gap-3">
           <span className="h-2.5 w-2.5 rounded-full bg-accent" />
           <span className="font-serif text-lg tracking-tight">Higgsfield</span>
@@ -186,7 +195,7 @@ export function App() {
           )}
         </button>
       </header>
-      <main className="min-h-0 flex-1 overflow-y-auto">
+      <main className="min-h-0 flex-1 overflow-hidden">
         {view === 'create' && (
           <Studio
             draft={draft}
@@ -200,8 +209,16 @@ export function App() {
             onGenerate={() => void generate()}
           />
         )}
-        {view === 'templates' && <Templates onUse={useTemplate} />}
-        {view === 'models' && <Models selectedId={draft.modelId} library={library} libraryError={libraryError} onUse={useModel} />}
+        {view === 'templates' && (
+          <div className="h-full overflow-y-auto">
+            <Templates onUse={useTemplate} />
+          </div>
+        )}
+        {view === 'models' && (
+          <div className="h-full overflow-y-auto">
+            <Models selectedId={draft.modelId} library={library} libraryError={libraryError} onUse={useModel} />
+          </div>
+        )}
       </main>
       <DownloadsTray
         open={downloadsOpen}
@@ -215,24 +232,22 @@ export function App() {
       {starterOpen && (
         <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/80 p-4 sm:items-center">
           <div className="w-full max-w-3xl rounded-3xl border border-line bg-panel p-6">
-            <p className="text-[11px] tracking-[0.22em] text-accent uppercase">First open</p>
-            <h2 className="mt-2 font-serif text-3xl tracking-tight">Pick a starter</h2>
-            <p className="mt-2 max-w-xl text-sm text-muted">
-              Templates check the open checkpoint and download it with progress if it is missing. Soul, Kling, Veo, and Seedance stay listed, and they do not download.
-            </p>
+            <h2 className="font-serif text-3xl tracking-tight">Pick a look</h2>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               {LOCAL_TEMPLATES.map((entry) => (
                 <button
                   key={entry.id}
                   type="button"
                   onClick={() => useTemplate(entry)}
-                  className="rounded-2xl border border-line bg-black px-4 py-4 text-left hover:border-accent"
+                  className="overflow-hidden rounded-2xl border border-white/10 bg-black text-left hover:border-accent"
                 >
-                  <div className="flex items-center justify-between">
-                    <p className="font-serif text-lg">{entry.title}</p>
+                  <div className="flex h-28 items-end bg-[linear-gradient(160deg,#141210,#2a241c)] p-4">
+                    <p className="font-serif text-xl">{entry.title}</p>
+                  </div>
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <span className="text-xs text-muted">{entry.aspect}</span>
                     <Badge>{entry.kind === 'video' ? 'Clip' : 'Still'}</Badge>
                   </div>
-                  <p className="mt-2 text-sm text-muted">{entry.blurb}</p>
                 </button>
               ))}
             </div>

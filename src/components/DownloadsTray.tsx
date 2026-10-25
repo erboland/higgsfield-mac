@@ -47,9 +47,8 @@ export function DownloadsTray({
   const completed = rows.filter((row) => row.status === 'completed').length
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="w-[min(560px,calc(100%-2rem))]">
+      <DialogContent className="w-[min(560px,calc(100%-2rem))]" >
         <DialogTitle className="font-serif text-xl">Downloads</DialogTitle>
-        <p className="mt-1 text-sm text-muted">Checkpoints land in the app model folder. Hosted models are not in this list.</p>
         <div className="mt-4 flex gap-2">
           {(['all', 'active', 'completed', 'failed'] as Filter[]).map((item) => (
             <button
