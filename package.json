@@ -1,7 +1,7 @@
 {
   "name": "higgsfield-local",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Higgsfield for Mac — local development studio for Higgsfield skills and models.",
   "author": "Higgsfield Local",
   "license": "MIT",
