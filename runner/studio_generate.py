@@ -324,7 +324,7 @@ def file_model_id(folder: str, filename: str) -> str:
 def resolve_library_file(root: Path, model_id: str) -> Path:
     if not model_id.startswith("file:"):
         raise SystemExit(f"{model_id} is not a file in the model library.")
-    relative = model_id[len("file:"):]
+    relative = model_id[len("file:") :]
     parts = relative.split("/")
     if len(parts) != 2 or parts[0] not in LIBRARY_FOLDERS or parts[1] in ("", ".", ".."):
         raise SystemExit("That file is outside the model folders.")
