@@ -131,6 +131,11 @@ app.whenReady().then(() => {
         loraId?: string
         vaeId?: string
         embeddingId?: string
+        sampler?: string
+        scheduler?: string
+        steps?: number
+        cfg?: number
+        seed?: number
       },
     ) => {
       if (!input || typeof input.prompt !== 'string') throw new Error('Write a prompt before Generate.')
@@ -149,6 +154,11 @@ app.whenReady().then(() => {
         loraId: input.loraId,
         vaeId: input.vaeId,
         embeddingId: input.embeddingId,
+        sampler: input.sampler,
+        scheduler: input.scheduler,
+        steps: input.steps,
+        cfg: input.cfg,
+        seed: input.seed,
         directory: workspace?.directory || defaultOutputDir(),
         homeDir: app.getPath('home'),
         modelHome: path.join(app.getPath('userData'), 'models'),
