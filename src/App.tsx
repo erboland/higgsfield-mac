@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { Models } from '@/screens/Models'
 import { Studio } from '@/screens/Studio'
 import { Templates } from '@/screens/Templates'
+import { sampleDefaults } from '@/shared/sampleControls.ts'
 import { BASE_MODEL_ID, canRunModel, type LibraryReport } from '@/shared/studioModels.ts'
 import { coverUrl } from '@/shared/coverUrl.ts'
 import { LOCAL_TEMPLATES, type StudioAspect, type StudioTemplate } from '@/shared/studioTemplates.ts'
@@ -29,6 +30,11 @@ export type StudioDraft = {
   loraId: string
   vaeId: string
   embeddingId: string
+  sampler: string
+  scheduler: string
+  steps: number
+  cfg: number
+  seed: number
   kind: 'image' | 'video'
   aspect: StudioAspect
 }
@@ -48,6 +54,7 @@ function starterDraft(): StudioDraft {
     loraId: '',
     vaeId: '',
     embeddingId: '',
+    ...sampleDefaults(BASE_MODEL_ID),
     kind: first.kind,
     aspect: first.aspect,
   }
@@ -128,7 +135,7 @@ export function App() {
   }
 
   function useModel(modelId: string) {
-    setDraft((current) => ({ ...current, modelId }))
+    setDraft((current) => ({ ...current, modelId, ...sampleDefaults(modelId) }))
     dismissStarter()
     select('create')
   }
@@ -148,6 +155,11 @@ export function App() {
         loraId: draft.loraId,
         vaeId: draft.vaeId,
         embeddingId: draft.embeddingId,
+        sampler: draft.sampler,
+        scheduler: draft.scheduler,
+        steps: draft.steps,
+        cfg: draft.cfg,
+        seed: draft.seed,
       })
       setResult(next)
       setShots((current) => [{ id: crypto.randomUUID(), prompt: draft.prompt, result: next }, ...current].slice(0, 12))
