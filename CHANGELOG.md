@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.5 — 3 Nov 2026
+
+- Templates lists ideas from Higgsfield's public library, with search and category filters. Text ideas run on the local checkpoint. Ideas that need an image, a clip, a sketch, or a product link stay visible and read Coming later.
+- New card photographs are local SDXL stills from each template's own prompt.
+
 ## 0.2.4 — 3 Nov 2026
 
 - Weights exposes sampler, scheduler, steps, CFG, and seed. SDXL Base and SD 1.x default to euler, normal, 20 steps, CFG 8, seed 0. SD Turbo and SDXL Turbo stay at one step and CFG 0.
