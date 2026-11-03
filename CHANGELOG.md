@@ -4,6 +4,7 @@
 
 - Weights exposes sampler, scheduler, steps, CFG, and seed. SDXL Base and SD 1.x default to euler, normal, 20 steps, CFG 8, seed 0. SD Turbo and SDXL Turbo stay at one step and CFG 0.
 - Euler / normal draws CPU noise, scales it by sqrt(1 + sigma²), encodes an empty negative prompt, and feeds the nearest training timestep. The VAE decode stays in fp32 and does not tile.
+- The disk image includes the sampler, loader, and inspection modules next to studio_generate.py.
 
 ## 0.2.3 — 25 Oct 2026
 
