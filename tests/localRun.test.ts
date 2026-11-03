@@ -33,7 +33,7 @@ test('the runner names the open checkpoint and not a hosted Higgsfield model', (
 })
 
 test('a partial SD Turbo snapshot is deleted and the pipeline call does not pass dtype', () => {
-  const source = readFileSync('runner/studio_generate.py', 'utf8')
+  const source = [readFileSync('runner/studio_generate.py', 'utf8'), readFileSync('runner/studio_load.py', 'utf8')].join('\n')
   assert.match(source, /torch_dtype=torch\.float32/)
   assert.match(source, /allow_patterns/)
   assert.doesNotMatch(source, /ignore_patterns/)
