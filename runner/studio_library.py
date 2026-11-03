@@ -203,6 +203,44 @@ def pin_hub_cache(cache: Path) -> None:
     os.environ["HUGGINGFACE_HUB_CACHE"] = str(cache)
 
 
+def checkpoint_damage(path: Path) -> str | None:
+    """A short reason this file is not a readable safetensors checkpoint.
+
+    A matching byte count is not enough. A resumed download can land on the
+    expected size and still have a broken header, and diffusers then hides the
+    real read error behind "Unable to load weights".
+    """
+    try:
+        size = path.stat().st_size
+    except OSError as exc:
+        return f"{path.name} could not be read ({exc})."
+    if size < 16:
+        return f"{path.name} is too small to be a checkpoint."
+    with path.open("rb") as handle:
+        header_len = int.from_bytes(handle.read(8), "little")
+        if header_len < 2 or header_len > 100_000_000 or 8 + header_len > size:
+            return f"{path.name} is damaged."
+        header = handle.read(header_len)
+    if header.startswith(b"<") or header.startswith(b"version"):
+        return f"{path.name} is not a checkpoint file."
+    try:
+        meta = json.loads(header)
+    except json.JSONDecodeError:
+        return f"{path.name} is damaged."
+    if not isinstance(meta, dict):
+        return f"{path.name} is damaged."
+    tensors = [value for value in meta.values() if isinstance(value, dict) and "data_offsets" in value]
+    if not tensors:
+        return f"{path.name} has no weights."
+    try:
+        data_end = max(int(item["data_offsets"][1]) for item in tensors)
+    except (KeyError, TypeError, ValueError):
+        return f"{path.name} is damaged."
+    if 8 + header_len + data_end != size:
+        return f"{path.name} is incomplete."
+    return None
+
+
 def app_cache() -> Path:
     raw = os.environ.get("HIGGSFIELD_MODEL_HOME", "").strip()
     if not raw:
@@ -210,3 +248,5 @@ def app_cache() -> Path:
     cache = Path(raw).expanduser()
     cache.mkdir(parents=True, exist_ok=True)
     return cache
+
+
