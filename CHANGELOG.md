@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.4 — 3 Nov 2026
+
+- Weights exposes sampler, scheduler, steps, CFG, and seed. SDXL Base and SD 1.x default to euler, normal, 20 steps, CFG 8, seed 0. SD Turbo and SDXL Turbo stay at one step and CFG 0.
+- Euler / normal draws CPU noise, scales it by sqrt(1 + sigma²), encodes an empty negative prompt, and feeds the nearest training timestep. The VAE decode stays in fp32 and does not tile.
+
 ## 0.2.3 — 25 Oct 2026
 
 - Template and model cards show photographs bundled in the app. Editorial still, Lifestyle at home, Product hero shot, and UGC review use SDXL Base covers from each template prompt. Hosted cards and checkpoints use Unsplash photographs credited in NOTICES.

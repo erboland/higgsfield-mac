@@ -11,6 +11,11 @@
   extraResources: [
     { from: "vendor/python", to: "python" },
     { from: "runner/studio_generate.py", to: "runner/studio_generate.py" },
+    { from: "runner/studio_library.py", to: "runner/studio_library.py" },
+    { from: "runner/studio_fetch.py", to: "runner/studio_fetch.py" },
+    { from: "runner/studio_stage.py", to: "runner/studio_stage.py" },
+    { from: "runner/studio_inspect.py", to: "runner/studio_inspect.py" },
+    { from: "runner/sample_schedule.py", to: "runner/sample_schedule.py" },
     { from: "runner/requirements-mac.txt", to: "runner/requirements-mac.txt" },
     { from: "public/demos", to: "demos", filter: ["*.jpg", "*.jpeg", "*.png", "*.mp4"] },
   ],
