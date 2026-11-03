@@ -52,6 +52,11 @@ function localGenerateApi(): Plugin {
                 loraId?: string
                 vaeId?: string
                 embeddingId?: string
+                sampler?: string
+                scheduler?: string
+                steps?: number
+                cfg?: number
+                seed?: number
               }
               if (!body.directory || (body.kind !== 'image' && body.kind !== 'video') || typeof body.prompt !== 'string') {
                 throw new Error('Generate needs a folder, a prompt, and an image or a local clip.')
@@ -66,6 +71,11 @@ function localGenerateApi(): Plugin {
                 loraId: body.loraId,
                 vaeId: body.vaeId,
                 embeddingId: body.embeddingId,
+                sampler: body.sampler,
+                scheduler: body.scheduler,
+                steps: body.steps,
+                cfg: body.cfg,
+                seed: body.seed,
                 modelHome: previewModelHome,
                 onProgress: (progress) => {
                   res.write(`${JSON.stringify({ type: 'progress', progress })}\n`)
