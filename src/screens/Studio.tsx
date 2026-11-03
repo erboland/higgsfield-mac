@@ -16,6 +16,7 @@ import {
   type LibraryModel,
   type LibraryReport,
 } from '@/shared/studioModels.ts'
+import { SAMPLERS, SCHEDULERS, sampleDefaults } from '@/shared/sampleControls.ts'
 import { STUDIO_ASPECTS, templateById, type StudioAspect } from '@/shared/studioTemplates.ts'
 import type { LocalGeneration, LocalProgress } from '@/shared/types.ts'
 
@@ -113,7 +114,7 @@ export function Studio({
   }
 
   function chooseModel(modelId: string) {
-    onDraft({ ...draft, modelId })
+    onDraft({ ...draft, modelId, ...sampleDefaults(modelId) })
     setModelOpen(false)
   }
 
@@ -294,6 +295,72 @@ export function Studio({
               library={library}
               onChange={(embeddingId) => onDraft({ ...draft, embeddingId })}
             />
+            <label className="text-[11px] tracking-[0.16em] text-muted uppercase">
+              Sampler
+              <select
+                aria-label="Sampler"
+                value={draft.sampler}
+                onChange={(event) => onDraft({ ...draft, sampler: event.target.value })}
+                className="mt-1 w-full rounded-full border border-line bg-black px-3 py-2 text-sm text-ink normal-case"
+              >
+                {SAMPLERS.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-[11px] tracking-[0.16em] text-muted uppercase">
+              Scheduler
+              <select
+                aria-label="Scheduler"
+                value={draft.scheduler}
+                onChange={(event) => onDraft({ ...draft, scheduler: event.target.value })}
+                className="mt-1 w-full rounded-full border border-line bg-black px-3 py-2 text-sm text-ink normal-case"
+              >
+                {SCHEDULERS.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-[11px] tracking-[0.16em] text-muted uppercase">
+              Steps
+              <input
+                aria-label="Steps"
+                type="number"
+                min={1}
+                max={10000}
+                value={draft.steps}
+                onChange={(event) => onDraft({ ...draft, steps: Number(event.target.value) })}
+                className="mt-1 w-full rounded-full border border-line bg-black px-3 py-2 text-sm text-ink normal-case"
+              />
+            </label>
+            <label className="text-[11px] tracking-[0.16em] text-muted uppercase">
+              CFG
+              <input
+                aria-label="CFG"
+                type="number"
+                min={0}
+                max={100}
+                step={0.1}
+                value={draft.cfg}
+                onChange={(event) => onDraft({ ...draft, cfg: Number(event.target.value) })}
+                className="mt-1 w-full rounded-full border border-line bg-black px-3 py-2 text-sm text-ink normal-case"
+              />
+            </label>
+            <label className="text-[11px] tracking-[0.16em] text-muted uppercase">
+              Seed
+              <input
+                aria-label="Seed"
+                type="number"
+                min={0}
+                value={draft.seed}
+                onChange={(event) => onDraft({ ...draft, seed: Number(event.target.value) })}
+                className="mt-1 w-full rounded-full border border-line bg-black px-3 py-2 text-sm text-ink normal-case"
+              />
+            </label>
           </div>
         )}
       </form>
