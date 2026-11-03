@@ -247,7 +247,7 @@ export function App() {
           <div className="w-full max-w-3xl rounded-3xl border border-line bg-panel p-6">
             <h2 className="font-serif text-3xl tracking-tight">Pick a look</h2>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              {LOCAL_TEMPLATES.map((entry) => (
+              {LOCAL_TEMPLATES.filter((entry) => entry.featured).map((entry) => (
                 <button
                   key={entry.id}
                   type="button"
