@@ -27,7 +27,7 @@ Model files are identified with [REA](https://github.com/morluto/rea) (`rea-agen
 
 ## Card photographs
 
-Template covers for Editorial still, Lifestyle at home, Product hero shot, and UGC review are stills drawn in this project with SDXL Base from each template's own prompt. They are not copies of higgsfield.com or ComfyUI marketing.
+Template covers are stills drawn in this project with SDXL Base from each template's own prompt. They are not copies of higgsfield.ai or ComfyUI marketing. Public tool names in the template list are factual labels. The prompt wording is original. Skill-shaped product ideas follow the MIT `higgsfield-ai/skills` catalog and are credited above.
 
 Hosted template cards and the checkpoint cards use photographs from [Unsplash](https://unsplash.com), stored in the app so the cards do not load them from the network. They are under the [Unsplash License](https://unsplash.com/license).
 
