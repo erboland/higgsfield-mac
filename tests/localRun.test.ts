@@ -76,6 +76,22 @@ print("partial" if (app_cache.parent / module.REPO_DIR).exists() else "deleted")
   assert.equal(existsSync(path.join(root, 'models--stabilityai--sd-turbo')), false)
 })
 
+test('a damaged checkpoint is not treated as ready', () => {
+  const probe = `
+import importlib.util, pathlib, sys, tempfile
+spec = importlib.util.spec_from_file_location("studio_library", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+folder = pathlib.Path(tempfile.mkdtemp())
+bad = folder / "sd_xl_base_1.0.safetensors"
+bad.write_bytes(b"not a checkpoint!!")
+print(module.checkpoint_damage(bad))
+`
+  const result = spawnSync('python3', ['-c', probe, path.resolve('runner/studio_library.py')], { encoding: 'utf8' })
+  assert.equal(result.status, 0, result.stderr)
+  assert.match(result.stdout, /damaged|too small|not a checkpoint/)
+})
+
 test('the packaged runner does not tell the user to create a venv', () => {
   const source = readFileSync('runner/generate.ts', 'utf8')
   assert.doesNotMatch(source, /pip install/)
