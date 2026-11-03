@@ -131,6 +131,11 @@ export type HiggsfieldApi = {
     loraId?: string
     vaeId?: string
     embeddingId?: string
+    sampler?: string
+    scheduler?: string
+    steps?: number
+    cfg?: number
+    seed?: number
   }): Promise<LocalGeneration>
   openResult(filePath: string): Promise<void>
   onLocalProgress(listener: (event: LocalProgress) => void): () => void
