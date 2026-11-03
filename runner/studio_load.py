@@ -21,6 +21,8 @@ def ensure_sdxl(root: Path) -> Path:
         }
     )
     ensure_sdxl_config(root)
+    if dest.is_file() and checkpoint_damage(dest):
+        dest.unlink()
     if dest.is_file() and dest.stat().st_size == SDXL_BYTES:
         emit(
             {
@@ -58,6 +60,8 @@ def ensure_base(root: Path) -> Path:
         }
     )
     ensure_sdxl_config(root, BASE_ID)
+    if dest.is_file() and checkpoint_damage(dest):
+        dest.unlink()
     if dest.is_file() and dest.stat().st_size == BASE_BYTES:
         emit(
             {
@@ -136,28 +140,58 @@ def keep_sdxl_vae_in_fp32(pipe) -> None:
     pipe.upcast_vae = upcast_vae
 
 
-def load_checkpoint_file(path: Path, family: str, config_dir: Path | None):
-    import torch
+def open_checkpoint(path: Path, family: str, config_dir: Path | None):
+    """Load a single-file checkpoint, or raise a one-line reason."""
     from diffusers import StableDiffusionPipeline, StableDiffusionXLPipeline
 
-    if family in ("sdxl-turbo", "sdxl-base"):
-        pipe = StableDiffusionXLPipeline.from_single_file(
-            str(path),
-            config=str(config_dir) if config_dir else (SDXL_ID if family == "sdxl-turbo" else BASE_ID),
-            torch_dtype=torch.float32,
-            local_files_only=True,
-        )
-        keep_sdxl_vae_in_fp32(pipe)
-        steps = 1 if family == "sdxl-turbo" else BASE_STEPS
-        guidance = 0.0 if family == "sdxl-turbo" else BASE_GUIDANCE
-    else:
-        pipe = StableDiffusionPipeline.from_single_file(
+    if path.suffix.lower() == ".safetensors":
+        damage = checkpoint_damage(path)
+        if damage:
+            if path.name in (BASE_FILE, SDXL_FILE):
+                path.unlink(missing_ok=True)
+                raise SystemExit(f"{damage} Run Generate again to download a fresh copy.")
+            raise SystemExit(damage)
+    try:
+        if family in ("sdxl-turbo", "sdxl-base"):
+            return StableDiffusionXLPipeline.from_single_file(
+                str(path),
+                config=str(config_dir) if config_dir else (SDXL_ID if family == "sdxl-turbo" else BASE_ID),
+                torch_dtype=torch.float32,
+                local_files_only=True,
+            )
+        return StableDiffusionPipeline.from_single_file(
             str(path),
             torch_dtype=torch.float32,
             safety_checker=None,
             requires_safety_checker=False,
             local_files_only=True,
         )
+    except OSError as exc:
+        text = str(exc).split("\n")[0]
+        if "Unable to load weights" not in text:
+            raise
+        try:
+            from safetensors.torch import load_file
+
+            load_file(str(path), device="cpu")
+        except Exception as cause:
+            reason = str(cause).split("\n")[0]
+            low = reason.lower()
+            if "memory" in low or "alloc" in low:
+                raise SystemExit(f"Not enough free memory to open {path.name}. Close other apps and run Generate again.") from cause
+            path.unlink(missing_ok=True)
+            raise SystemExit(f"{path.name} could not be opened ({reason}). It was removed. Run Generate again to download it.") from cause
+        raise SystemExit(f"{path.name} opened, but the pipeline could not be built. Run Generate again.") from exc
+
+
+def load_checkpoint_file(path: Path, family: str, config_dir: Path | None):
+    if family in ("sdxl-turbo", "sdxl-base"):
+        pipe = open_checkpoint(path, family, config_dir)
+        keep_sdxl_vae_in_fp32(pipe)
+        steps = 1 if family == "sdxl-turbo" else BASE_STEPS
+        guidance = 0.0 if family == "sdxl-turbo" else BASE_GUIDANCE
+    else:
+        pipe = open_checkpoint(path, family, config_dir)
         steps = 1 if family == "sd-turbo" else BASE_STEPS
         guidance = 0.0 if family == "sd-turbo" else BASE_GUIDANCE
     pipe.set_progress_bar_config(disable=True)
@@ -262,3 +296,4 @@ def write_video(frames: list[Path], video: Path) -> None:
         container.close()
         return
     raise SystemExit("A local clip needs PyAV. This is not a Kling, Veo, or Seedance file.")
+
