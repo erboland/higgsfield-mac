@@ -98,8 +98,7 @@ export async function generateLocal(input: {
   })
   const { stdout, stderr, code } = await runPython(pythonBin(), script, modelHome, payload, input.onProgress)
   if (code !== 0) {
-    const tail = stderr.trim().split('\n').filter(Boolean).slice(-4).join(' ')
-    throw new Error(tail || 'Local generation failed.')
+    throw new Error(pythonFailure(stderr))
   }
   const line = stdout
     .trim()
@@ -159,6 +158,15 @@ function addonId(value: string | undefined, folder: AddonFolder): string {
   if (!id) return ''
   if (!canAttach(id, folder)) throw new Error(`That file is not a ${folder} weight.`)
   return id
+}
+
+export function pythonFailure(stderr: string): string {
+  const lines = stderr
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('Traceback') && !line.startsWith('File ') && !/^[\^~ ]+$/.test(line))
+  const picked = lines.at(-1) || 'Local generation failed.'
+  return picked.replace(/^(OSError|RuntimeError|SystemExit):\s*/, '').slice(0, 500)
 }
 
 function runPython(
