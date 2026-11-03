@@ -24,6 +24,7 @@ export function bundledPython(candidates: string[]): string | null {
 function pythonBin(): string {
   const resources = process.resourcesPath ?? ''
   const found = bundledPython([
+    process.env.HIGGSFIELD_PYTHON ?? '',
     path.join(resources, 'python', 'bin', 'python3'),
     path.join(repoRoot(), 'vendor', 'python', 'bin', 'python3'),
     path.join(repoRoot(), 'runner', '.venv', 'bin', 'python'),
@@ -45,6 +46,11 @@ export async function generateLocal(input: {
   loraId?: string
   vaeId?: string
   embeddingId?: string
+  sampler?: string
+  scheduler?: string
+  steps?: number
+  cfg?: number
+  seed?: number
   modelHome?: string
   homeDir?: string
   onProgress?: (progress: LocalProgress) => void
@@ -74,7 +80,22 @@ export async function generateLocal(input: {
   const loraId = addonId(input.loraId, 'loras')
   const vaeId = addonId(input.vaeId, 'vae')
   const embeddingId = addonId(input.embeddingId, 'embeddings')
-  const payload = JSON.stringify({ prompt, kind: input.kind, outputDir, fileStem, modelId, aspectRatio, loraId, vaeId, embeddingId })
+  const payload = JSON.stringify({
+    prompt,
+    kind: input.kind,
+    outputDir,
+    fileStem,
+    modelId,
+    aspectRatio,
+    loraId,
+    vaeId,
+    embeddingId,
+    sampler: input.sampler,
+    scheduler: input.scheduler,
+    steps: input.steps,
+    cfg: input.cfg,
+    seed: input.seed,
+  })
   const { stdout, stderr, code } = await runPython(pythonBin(), script, modelHome, payload, input.onProgress)
   if (code !== 0) {
     const tail = stderr.trim().split('\n').filter(Boolean).slice(-4).join(' ')

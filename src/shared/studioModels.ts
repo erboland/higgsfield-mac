@@ -38,14 +38,14 @@ export const OPEN_CHECKPOINTS: OpenCheckpoint[] = [
     name: OPEN_MODEL_NAME,
     folder: 'checkpoints',
     filename: 'sd_turbo.safetensors',
-    note: 'Open SD Turbo checkpoint. Two-step stills.',
+    note: 'Open SD Turbo checkpoint. One step, CFG 0, euler, normal.',
   },
   {
     id: BASE_MODEL_ID,
     name: BASE_MODEL_NAME,
     folder: 'checkpoints',
     filename: BASE_FILENAME,
-    note: 'Full SDXL checkpoint. Twenty steps, guidance 5. Not a turbo distillation.',
+    note: 'Full SDXL checkpoint. Twenty steps, CFG 8, euler, normal. Not a turbo distillation.',
   },
   {
     id: SDXL_MODEL_ID,
