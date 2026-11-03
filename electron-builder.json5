@@ -11,6 +11,7 @@
   extraResources: [
     { from: "vendor/python", to: "python" },
     { from: "runner/studio_generate.py", to: "runner/studio_generate.py" },
+    { from: "runner/studio_load.py", to: "runner/studio_load.py" },
     { from: "runner/studio_library.py", to: "runner/studio_library.py" },
     { from: "runner/studio_fetch.py", to: "runner/studio_fetch.py" },
     { from: "runner/studio_stage.py", to: "runner/studio_stage.py" },
