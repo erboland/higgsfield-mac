@@ -4,16 +4,21 @@ import path from 'node:path'
 import { test } from 'node:test'
 import { summarizeRea } from '../src/shared/reaSummary.ts'
 import { BASE_MODEL_ID, canAttach, canDownloadModel, canRunModel, isHostedModel, MODEL_FOLDERS, OPEN_MODEL_ID, SDXL_MODEL_ID } from '../src/shared/studioModels.ts'
-import { LOCAL_TEMPLATES, STUDIO_ASPECTS } from '../src/shared/studioTemplates.ts'
+import { LATER_TEMPLATES, LOCAL_TEMPLATES, STUDIO_ASPECTS } from '../src/shared/studioTemplates.ts'
 import { rowFromProgress } from '../src/shared/downloadRow.ts'
 
 test('public studio presets stay on the open checkpoint', () => {
-  const titles = LOCAL_TEMPLATES.map((entry) => entry.title)
+  const titles = LOCAL_TEMPLATES.filter((entry) => entry.featured).map((entry) => entry.title)
   assert.deepEqual(titles, ['Editorial still', 'Lifestyle at home', 'Product hero shot', 'UGC review'])
   for (const entry of LOCAL_TEMPLATES) {
     assert.equal(STUDIO_ASPECTS.includes(entry.aspect), true)
     assert.equal(entry.runnable, true)
     assert.ok(entry.prompt.length > 20)
+  }
+  assert.ok(LOCAL_TEMPLATES.length > 4)
+  for (const entry of LATER_TEMPLATES) {
+    assert.equal(entry.runnable, false)
+    assert.equal(entry.group, 'Coming later')
   }
   assert.ok(MODEL_FOLDERS.includes('checkpoints'))
   assert.ok(MODEL_FOLDERS.includes('text_encoders'))
