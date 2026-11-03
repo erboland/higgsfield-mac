@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
+import path from 'node:path'
 import { test } from 'node:test'
 import { summarizeRea } from '../src/shared/reaSummary.ts'
 import { BASE_MODEL_ID, canAttach, canDownloadModel, canRunModel, isHostedModel, MODEL_FOLDERS, OPEN_MODEL_ID, SDXL_MODEL_ID } from '../src/shared/studioModels.ts'
@@ -73,12 +74,24 @@ test('download rows keep percent, folder, and filename', () => {
   assert.equal(row?.status, 'active')
 })
 
+function runnerSource(): string {
+  return readdirSync('runner')
+    .filter((name) => name.endsWith('.py'))
+    .sort()
+    .map((name) => readFileSync(path.join('runner', name), 'utf8'))
+    .join('\n')
+}
+
 test('the studio runner allow-lists files and does not pass dtype', () => {
-  const source = readFileSync('runner/studio_generate.py', 'utf8')
+  const source = runnerSource()
+  const generate = readFileSync('runner/studio_generate.py', 'utf8')
+  const loaders = generate + readFileSync('runner/studio_load.py', 'utf8')
   assert.match(source, /allow_patterns/)
   assert.doesNotMatch(source, /ignore_patterns/)
-  assert.match(source, /torch_dtype=torch\.float32/)
-  assert.doesNotMatch(source, /(?<!torch_)dtype=/)
+  assert.match(loaders, /torch_dtype=torch\.float32/)
+  assert.doesNotMatch(loaders, /(?<!torch_)dtype=/)
+  assert.match(generate, /snap_timesteps/)
+  assert.match(generate, /negative_prompt=""/)
   assert.match(source, /inspect-model-artifact/)
   assert.match(source, /MODEL_ID = "stabilityai\/sd-turbo"/)
   assert.match(source, /stabilityai\/sdxl-turbo/)
