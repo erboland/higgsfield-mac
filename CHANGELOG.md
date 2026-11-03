@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.6 — 4 Nov 2026
+
+- A damaged SDXL Base file is detected before Generate and downloaded again. If the copy is intact but cannot be opened, the message says so instead of a Python traceback.
+
 ## 0.2.5 — 3 Nov 2026
 
 - Templates lists ideas from Higgsfield's public library, with search and category filters. Text ideas run on the local checkpoint. Ideas that need an image, a clip, a sketch, or a product link stay visible and read Coming later.
