@@ -112,6 +112,11 @@ export function createBrowserBridge(): HiggsfieldApi {
           loraId: input.loraId,
           vaeId: input.vaeId,
           embeddingId: input.embeddingId,
+          sampler: input.sampler,
+          scheduler: input.scheduler,
+          steps: input.steps,
+          cfg: input.cfg,
+          seed: input.seed,
           directory,
         }),
       })
